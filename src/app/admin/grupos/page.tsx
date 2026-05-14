@@ -5,7 +5,7 @@ import { toast } from "sonner";
 import type { GroupMemberView } from "@/features/group-member";
 import type { ProjectContextView } from "@/features/shared/types";
 
-const GROUP_NAMES = ["G01", "G02", "G03", "G04", "G05", "G06", "G07", "G08", "G09", "G10"];
+const GROUP_NAMES = ["G01", "G02", "G03", "G04", "G05"];
 
 type User = { id: string; name: string; email: string };
 
@@ -40,7 +40,7 @@ export default function AdminGruposPage() {
     try {
       const [projectsRes, usersRes] = await Promise.all([
         fetch("/api/project-contexts"),
-        fetch("/api/admin/usuarios"),
+        fetch("/api/admin/users"),
       ]);
       const [projectsPayload, usersPayload] = await Promise.all([
         projectsRes.json(),
@@ -63,12 +63,12 @@ export default function AdminGruposPage() {
     setMembers(payload.data ?? []);
   }, [selectedProject]);
 
-  useEffect(() => { loadData(); }, []);
+  useEffect(() => { loadData(); }, [loadData]);
   useEffect(() => { loadMembers(); }, [loadMembers]);
 
   async function handleAssign() {
     if (!assignForm.userId || !selectedProject) {
-      toast.error("Selecione um usuário e um projeto.");
+      toast.error("Selecione um usuario e um projeto.");
       return;
     }
     setIsSaving(true);
@@ -103,7 +103,6 @@ export default function AdminGruposPage() {
     }
   }
 
-  // Group members by groupName
   const byGroup = GROUP_NAMES.reduce<Record<string, GroupMemberView[]>>((acc, g) => {
     acc[g] = members.filter((m) => m.groupName === g);
     return acc;
@@ -113,19 +112,18 @@ export default function AdminGruposPage() {
   const unassignedUsers = users.filter((u) => !assignedUserIds.has(u.id));
 
   if (isLoading) {
-    return <p style={{ color: "#475569" }}>Carregando…</p>;
+    return <p style={{ color: "#475569" }}>Carregando...</p>;
   }
 
   return (
     <div style={{ maxWidth: 860, display: "flex", flexDirection: "column", gap: 24 }}>
       <div>
-        <h1 style={{ fontSize: 22, fontWeight: 700, marginBottom: 6 }}>Alocação de Grupos</h1>
+        <h1 style={{ fontSize: 22, fontWeight: 700, marginBottom: 6 }}>Alocacao de Grupos</h1>
         <p style={{ color: "#64748b", fontSize: 14 }}>
           Atribua cada aluno ao seu grupo dentro de um projeto.
         </p>
       </div>
 
-      {/* Project selector */}
       <div style={card}>
         <label style={label}>Projeto</label>
         <select
@@ -133,32 +131,31 @@ export default function AdminGruposPage() {
           value={selectedProject}
           onChange={(e) => setSelectedProject(e.target.value)}
         >
-          <option value="">Selecione um projeto…</option>
+          <option value="">Selecione um projeto...</option>
           {projects.map((p) => (
-            <option key={p.id} value={p.id}>{p.name} {p.discipline ? `· ${p.discipline}` : ""}</option>
+            <option key={p.id} value={p.id}>{p.name} {p.discipline ? `- ${p.discipline}` : ""}</option>
           ))}
         </select>
       </div>
 
       {selectedProject && (
         <>
-          {/* Assign form */}
           <div style={card}>
             <p style={{ fontSize: 13, fontWeight: 700, color: "#64748b", letterSpacing: ".06em", textTransform: "uppercase", marginBottom: 16 }}>
               Alocar Aluno
             </p>
             <div style={{ display: "grid", gridTemplateColumns: "1fr 160px auto", gap: 12, alignItems: "flex-end" }}>
               <div>
-                <label style={label}>Usuário{unassignedUsers.length === 0 ? " (todos alocados)" : ""}</label>
+                <label style={label}>Usuario{unassignedUsers.length === 0 ? " (todos alocados)" : ""}</label>
                 <select
                   style={sel}
                   value={assignForm.userId}
                   onChange={(e) => setAssignForm((f) => ({ ...f, userId: e.target.value }))}
                 >
-                  <option value="">Selecione…</option>
+                  <option value="">Selecione...</option>
                   {users.map((u) => (
                     <option key={u.id} value={u.id}>
-                      {u.name || u.email} {assignedUserIds.has(u.id) ? "(já alocado)" : ""}
+                      {u.name || u.email} {assignedUserIds.has(u.id) ? "(ja alocado)" : ""}
                     </option>
                   ))}
                 </select>
@@ -176,14 +173,13 @@ export default function AdminGruposPage() {
                 </select>
               </div>
               <button style={btnPrimary} onClick={handleAssign} disabled={isSaving}>
-                {isSaving ? "Salvando…" : "Alocar"}
+                {isSaving ? "Salvando..." : "Alocar"}
               </button>
             </div>
           </div>
 
-          {/* Groups grid */}
           <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 12 }}>
-            {GROUP_NAMES.filter((g) => byGroup[g].length > 0 || g <= "G05").map((groupName) => {
+            {GROUP_NAMES.map((groupName) => {
               const groupMembers = byGroup[groupName] ?? [];
               return (
                 <div key={groupName} style={{
@@ -214,7 +210,7 @@ export default function AdminGruposPage() {
                             </div>
                             <div style={{ fontSize: 11, color: "#475569" }}>{m.user.email}</div>
                           </div>
-                          <button style={btnDanger} onClick={() => handleRemove(m.userId)}>✕</button>
+                          <button style={btnDanger} onClick={() => handleRemove(m.userId)}>x</button>
                         </div>
                       ))}
                     </div>

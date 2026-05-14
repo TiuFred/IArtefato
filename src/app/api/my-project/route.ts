@@ -14,7 +14,6 @@ export async function GET() {
       return NextResponse.json({ error: "Nao autenticado." }, { status: 401 });
     }
 
-    // Find user's group membership
     const membership = await db().groupMember.findFirst({
       where: { userId: session.user.id },
       include: {
@@ -30,17 +29,30 @@ export async function GET() {
           },
         },
       },
+      orderBy: { createdAt: "asc" },
     });
 
     if (!membership) {
       return NextResponse.json({ error: "Sem grupo atribuido." }, { status: 403 });
     }
 
+    const artefacts = membership.projectContext.artefactContexts.map((artefact: any) => ({
+      ...artefact,
+      groupFeedbacks: artefact.groupFeedbacks.map((feedback: any) => {
+        if (feedback.groupName === membership.groupName) return feedback;
+        return {
+          ...feedback,
+          wadText: "",
+          wadFileName: "",
+        };
+      }),
+    }));
+
     return NextResponse.json({
       data: {
         groupName: membership.groupName,
         projectContext: membership.projectContext,
-        artefacts: membership.projectContext.artefactContexts,
+        artefacts,
       },
     });
   } catch {
