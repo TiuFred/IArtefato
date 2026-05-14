@@ -19,16 +19,19 @@ const db = () => getPrisma() as unknown as Record<string, any>;
 export default async function RootLayout({ children }: { children: React.ReactNode }) {
   const session = await getSession();
   const headersList = await headers();
-  const pathname = headersList.get("x-pathname") ?? headersList.get("x-invoke-path") ?? "";
+  const pathname =
+    headersList.get("x-pathname") ??
+    headersList.get("next-url") ??
+    headersList.get("x-invoke-path") ??
+    "";
 
-  // Pages that don't need group check
   const isPublicRoute =
     !session ||
+    !pathname ||
     pathname.startsWith("/login") ||
     pathname.startsWith("/api") ||
     pathname.startsWith("/aguardando-grupo");
 
-  // Block non-admin users without a group
   if (!isPublicRoute && !session.isAdmin) {
     const membership = await db().groupMember.findFirst({
       where: { userId: session.userId },

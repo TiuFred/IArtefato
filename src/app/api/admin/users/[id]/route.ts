@@ -34,16 +34,21 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     }
     if (body.password) data.password = await bcrypt.hash(body.password, 10);
 
-    const defaultProject = await getPrisma().projectContext.findFirst({
+    let defaultProject = await getPrisma().projectContext.findFirst({
       select: { id: true },
       orderBy: { createdAt: "asc" },
     });
 
-    if (!defaultProject && body.groupName) {
-      return NextResponse.json(
-        { error: "Cadastre um projeto antes de alocar grupos aos usuarios." },
-        { status: 400 }
-      );
+    if (!defaultProject && body.groupName !== undefined) {
+      defaultProject = await getPrisma().projectContext.create({
+        data: {
+          name: "Projeto principal",
+          discipline: "",
+          description: "Projeto criado automaticamente para suportar a alocacao global de grupos.",
+          tapText: "",
+        },
+        select: { id: true },
+      });
     }
 
     const existingMemberships = await getPrisma().groupMember.findMany({
@@ -95,12 +100,19 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
 }
 
 export async function DELETE(_: Request, { params }: { params: Promise<{ id: string }> }) {
-  const session = await requireAdmin();
-  if (!session) return NextResponse.json({ error: "Nao autorizado." }, { status: 403 });
-  const { id } = await params;
-  if (id === session.userId) {
-    return NextResponse.json({ error: "Nao e possivel excluir a propria conta." }, { status: 400 });
+  try {
+    const session = await requireAdmin();
+    if (!session) return NextResponse.json({ error: "Nao autorizado." }, { status: 403 });
+    const { id } = await params;
+    if (id === session.userId) {
+      return NextResponse.json({ error: "Nao e possivel excluir a propria conta." }, { status: 400 });
+    }
+    await getPrisma().user.delete({ where: { id } });
+    return NextResponse.json({ ok: true });
+  } catch (error) {
+    return NextResponse.json(
+      { error: error instanceof Error ? error.message : "Nao foi possivel excluir o usuario." },
+      { status: 400 }
+    );
   }
-  await getPrisma().user.delete({ where: { id } });
-  return NextResponse.json({ ok: true });
 }

@@ -84,12 +84,13 @@ export default function UsuariosAdminPage() {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(payload),
     });
+    const data = await res.json().catch(() => null);
     if (res.ok) {
       toast.success("Usuario atualizado.");
       setEditingId(null);
       load();
     } else {
-      toast.error("Erro ao salvar.");
+      toast.error(data?.error ?? "Erro ao salvar.");
     }
   }
 
