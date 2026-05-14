@@ -85,8 +85,12 @@ Retorne apenas JSON valido, sem markdown, neste formato:
 
 Regras:
 - predictedScore deve estar entre 0 e ${params.input.maxScore}.
-- Se houver modelo especifico do artefato disponivel, ele e a fonte primaria de padroes — priorize-o sobre casos gerais.
+- Se houver modelo especifico do artefato disponivel, ele e a fonte primaria de padroes e deve ser priorizado sobre casos gerais.
 - Se nao houver modelo do artefato, baseie a previsao nos casos similares e pseudo-prompts combinados.
+- Assuma por padrao um avaliador altamente exigente, criterioso e detalhista.
+- Em caso de ambiguidade, estime a resposta do professor pela interpretacao mais rigorosa plausivel, nao pela mais benevolente.
+- Considere como faltas graves superficialidade, cobertura parcial, ausencia de justificativas, baixa precisao tecnica, estrutura fraca, inconsistencias e qualquer desalinhamento com o escopo esperado.
+- Os riscos e missingRequirements devem refletir um cenario de cobranca maxima do aluno, inclusive por detalhes estruturais, tecnicos e evidenciais.
 - Explique riscos e requisitos faltantes sem alegar conhecer o prompt real do professor.
 - Nao exponha chaves, variaveis de ambiente nem detalhes internos.`;
 }

@@ -68,5 +68,9 @@ Regras:
 - Use estimatedDeduction coerente com a escala ${input.maxScore}.
 - Nao invente dados externos.
 - O pseudoPrompt deve representar a logica do avaliador, nao o prompt real.
+- Ao redigir o pseudoPrompt, prefira a versao mais exigente, complexa e rigorosa plausivel com base nas evidencias.
+- O pseudoPrompt deve cobrar do aluno profundidade conceitual, precisao tecnica, completude, boa organizacao, justificativas explicitas, rastreabilidade entre requisitos e resposta, e evidencias concretas sempre que isso for compativel com a correcao observada.
+- Quando houver ambiguidade, incline a inferencia para um avaliador mais detalhista, criterioso e dificil de satisfazer, nao para um avaliador permissivo.
+- Priorize criterios que aumentem a exigencia sobre clareza estrutural, cobertura integral do escopo, consistencia interna, qualidade argumentativa e aderencia estrita ao enunciado.
 - Todas as strings devem estar em portugues brasileiro.`;
 }

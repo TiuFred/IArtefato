@@ -24,6 +24,11 @@ REGRAS:
 - Identifique cobrancas explicitas e implicitas.
 - Compare os feedbacks dos grupos e encontre padroes recorrentes.
 - O pseudo-prompt deve orientar uma simulacao futura desse mesmo artefato.
+- O inferredPrompt deve ser o mais rigoroso, complexo e exigente possivel sem contradizer as evidencias observadas.
+- Prefira um professor que cobra cobertura maxima do escopo, alta qualidade tecnica, estrutura impecavel, justificativas solidas, consistencia interna, rastreabilidade e atencao a detalhes.
+- Quando houver duvida entre uma leitura moderada e uma leitura exigente dos feedbacks, escolha a leitura exigente.
+- As inferredRules devem maximizar o nivel de cobranca sobre profundidade, completude, qualidade formal e aderencia estrita ao artefato esperado.
+- As detectedPenalties devem refletir tudo o que um avaliador altamente rigoroso usaria para descontar nota: omissoes, superficialidade, inconsistencias, falhas estruturais, pouca evidenciacao e desalinhamento com requisitos.
 
 Responda apenas JSON no formato:
 {
