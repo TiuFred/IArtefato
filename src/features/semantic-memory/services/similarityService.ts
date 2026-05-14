@@ -4,6 +4,7 @@ import { intersectionSize, tokenize, unique } from "./textUtils";
 export interface SimilarityInput {
   text: string;
   tags?: string[];
+  artefactName?: string;
 }
 
 export function calculateSimilarity(
@@ -28,9 +29,15 @@ export function calculateSimilarity(
   const sharedPatterns = intersectionSize(queryTokens, patternTokens);
   const patternScore = queryTokens.length > 0 ? sharedPatterns / queryTokens.length : 0;
   const score = lexical * 0.55 + tagScore * 0.25 + patternScore * 0.2;
+  const artefactBoost = query.artefactName
+    ? record.activityDescription.toLowerCase().includes(query.artefactName.toLowerCase()) ||
+      record.inference.tags.some((tag) => tag.toLowerCase() === query.artefactName?.toLowerCase())
+      ? 0.15
+      : 0
+    : 0;
 
   return {
-    score: toPercent(score),
+    score: toPercent(score + artefactBoost),
     reasons: buildReasons({
       sharedTokens,
       sharedTags,

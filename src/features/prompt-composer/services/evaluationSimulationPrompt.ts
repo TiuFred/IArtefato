@@ -1,9 +1,10 @@
-import type { EvaluationSimulationInput, SimulationContextCase } from "@/features/shared/types";
+import type { ArtefactCorrectionModelView, EvaluationSimulationInput, SimulationContextCase } from "@/features/shared/types";
 
 export function composeEvaluationSimulationPrompt(params: {
   input: EvaluationSimulationInput;
   contextCases: SimulationContextCase[];
   combinedPseudoPrompt: string;
+  artefactModel?: ArtefactCorrectionModelView | null;
 }): string {
   const context = params.contextCases
     .map((item, index) => {
@@ -16,6 +17,29 @@ Padroes: ${item.inference.criteria.map((criterion) => criterion.name).join(", ")
     })
     .join("\n\n");
 
+  const artefactModelSection = params.artefactModel
+    ? `
+MODELO DE CORRECAO ESPECIFICO DO ARTEFATO (alta prioridade):
+Artefato: ${params.artefactModel.artefactName}
+Rigor inferido: ${params.artefactModel.rigorLevel} | Confianca: ${params.artefactModel.confidence}%
+Grupos avaliados: ${params.artefactModel.groupFeedbackCount}
+
+Prompt inferido do professor para este artefato:
+${params.artefactModel.inferredPrompt}
+
+Regras inferidas:
+${params.artefactModel.inferredRules.map((r, i) => `${i + 1}. ${r}`).join("\n") || "Nenhuma regra especifica inferida."}
+
+Padroes de correcao detectados:
+${params.artefactModel.inferredPatterns.map((p, i) => `${i + 1}. ${p}`).join("\n") || "Nenhum padrao especifico detectado."}
+
+Penalizacoes detectadas:
+${params.artefactModel.detectedPenalties.map((p, i) => `${i + 1}. ${p}`).join("\n") || "Nenhuma penalizacao detectada."}
+
+Estilo de correcao: tom=${params.artefactModel.correctionStyle.tone}, foco=${params.artefactModel.correctionStyle.focus}
+`
+    : "";
+
   return `Voce trabalha para o IArtefato.
 
 Tarefa: simular como uma IA avaliadora de professor provavelmente reagiria a uma nova resposta, usando memoria de padroes inferidos anteriormente.
@@ -24,13 +48,16 @@ O objetivo nao e ser uma IA corretora generica; e reutilizar padroes de correcao
 NOVA ATIVIDADE:
 ${params.input.activityDescription}
 
+ARTEFATO IDENTIFICADO:
+${params.input.artefactName || "Nao informado"}
+
 NOVA RESPOSTA DO ALUNO:
 ${params.input.studentResponse}
-
-MEMORIA DE CASOS SIMILARES:
+${artefactModelSection}
+MEMORIA DE CASOS SIMILARES (contexto geral):
 ${context || "Nenhum caso similar disponivel."}
 
-PSEUDO-PROMPT CONTEXTUAL COMBINADO:
+PSEUDO-PROMPT CONTEXTUAL COMBINADO (casos gerais):
 ${params.combinedPseudoPrompt}
 
 Retorne apenas JSON valido, sem markdown, neste formato:
@@ -58,8 +85,8 @@ Retorne apenas JSON valido, sem markdown, neste formato:
 
 Regras:
 - predictedScore deve estar entre 0 e ${params.input.maxScore}.
-- Baseie a previsao principalmente nos casos similares e nos pseudo-prompts combinados.
-- Explique riscos e requisitos faltantes sem alegar conhecer o prompt real.
+- Se houver modelo especifico do artefato disponivel, ele e a fonte primaria de padroes — priorize-o sobre casos gerais.
+- Se nao houver modelo do artefato, baseie a previsao nos casos similares e pseudo-prompts combinados.
+- Explique riscos e requisitos faltantes sem alegar conhecer o prompt real do professor.
 - Nao exponha chaves, variaveis de ambiente nem detalhes internos.`;
 }
-

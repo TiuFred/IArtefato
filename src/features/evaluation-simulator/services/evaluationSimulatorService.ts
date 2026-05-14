@@ -3,6 +3,7 @@ import "server-only";
 import { generateGeminiJson } from "@/services/ai/gemini";
 import { composeEvaluationSimulationPrompt } from "@/features/prompt-composer/services";
 import { searchSimilarCorrectionCases } from "@/features/semantic-memory/services";
+import { getLatestModelByArtefactName } from "@/features/artefact-correction-model/services";
 import type {
   EvaluationSimulationInput,
   EvaluationSimulationOutput,
@@ -23,18 +24,27 @@ export async function simulateEvaluationWithGemini(
   const notaMaxima = input.maxScore;
   const semanticText = `${input.activityDescription}\n${input.studentResponse}`;
   const tags = extractSemanticTags(semanticText);
-  const similarCases = await searchSimilarCorrectionCases({
-    text: semanticText,
-    subject: input.subject,
-    tags,
-    limit: 4,
-  });
+
+  // Fetch similar cases and artefact-specific model in parallel
+  const [similarCases, artefactModel] = await Promise.all([
+    searchSimilarCorrectionCases({
+      text: semanticText,
+      subject: input.subject,
+      artefactName: input.artefactName,
+      tags,
+      limit: 4,
+    }),
+    input.artefactName
+      ? getLatestModelByArtefactName(input.artefactName)
+      : Promise.resolve(null),
+  ]);
 
   const combined = combinePseudoPrompts(similarCases);
   const prompt = composeEvaluationSimulationPrompt({
     input,
     contextCases: similarCases,
     combinedPseudoPrompt: combined.texto,
+    artefactModel,
   });
 
   const output = await generateGeminiJson(prompt, evaluationSimulationSchema);

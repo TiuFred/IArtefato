@@ -22,14 +22,18 @@
     "@radix-ui/react-tabs": "^1.1.13",
     "@radix-ui/react-tooltip": "^1.2.8",
     "@types/bcryptjs": "^2.4.6",
+    "@types/pdf-parse": "^1.1.5",
     "bcryptjs": "^3.0.3",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "framer-motion": "^12.38.0",
     "jose": "^6.2.3",
     "lucide-react": "^1.14.0",
+    "mammoth": "^1.12.0",
     "next": "16.2.6",
     "next-auth": "^5.0.0-beta.31",
+    "node-domexception": "file:./vendor/node-domexception-native",
+    "pdf-parse": "^2.4.5",
     "pg": "^8.20.0",
     "prisma": "^7.8.0",
     "react": "19.2.4",
@@ -39,9 +43,6 @@
     "sonner": "^2.0.7",
     "tailwind-merge": "^3.6.0",
     "zod": "^4.4.3"
-  },
-  "overrides": {
-    "node-domexception": "file:./vendor/node-domexception-native"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",

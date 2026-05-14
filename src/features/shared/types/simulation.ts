@@ -2,6 +2,7 @@ import type { CorrectionCaseView } from "./correction";
 
 export interface EvaluationSimulationInput {
   subject: string;
+  artefactName?: string;
   activityDescription: string;
   studentResponse: string;
   maxScore: number;
@@ -49,4 +50,3 @@ export interface SimulationContextCase extends CorrectionCaseView {
   similarity: number;
   matchedSignals: string[];
 }
-

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useEvaluationSimulator } from "@/features/evaluation-simulator";
 import type { EvaluationSimulationView } from "@/features/evaluation-simulator";
 import { SUBJECTS, SUBJECT_COLORS, SUBJECT_ICONS } from "@/features/shared/subjects";
@@ -12,9 +12,29 @@ export default function Simular() {
   const { simulate, result, error, reset } = useEvaluationSimulator();
   const [form, setForm] = useState({
     subject: "",
+    artefactName: "",
     activityDescription: "",
     studentResponse: "",
   });
+  const [knownArtefactNames, setKnownArtefactNames] = useState<string[]>([]);
+
+  useEffect(() => {
+    fetch("/api/artefact-correction-models", { cache: "no-store" })
+      .then((r) => r.json())
+      .then((payload) => {
+        if (Array.isArray(payload.data)) {
+          const names: string[] = Array.from(
+            new Set(payload.data.map((m: { artefactName: string }) => m.artefactName.toLowerCase()))
+          );
+          setKnownArtefactNames(names);
+        }
+      })
+      .catch(() => {});
+  }, []);
+
+  const hasArtefactModel =
+    form.artefactName.trim().length > 0 &&
+    knownArtefactNames.includes(form.artefactName.trim().toLowerCase());
 
   const isValid =
     form.subject.length > 0 &&
@@ -26,6 +46,7 @@ export default function Simular() {
     setStep("loading");
     const nextResult = await simulate({
       subject: form.subject,
+      artefactName: form.artefactName,
       activityDescription: form.activityDescription,
       studentResponse: form.studentResponse,
       maxScore: 10,
@@ -88,6 +109,52 @@ export default function Simular() {
             </div>
           </div>
 
+          <div>
+            <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 6 }}>
+              <label style={{ fontSize: 13, color: "#aaa", fontWeight: 500 }}>
+                Artefato específico
+              </label>
+              {hasArtefactModel && (
+                <span style={{
+                  fontSize: 11, fontWeight: 700, padding: "2px 8px", borderRadius: 20,
+                  background: "#14532d44", color: "#4ade80", border: "1px solid #16a34a44",
+                }}>
+                  ✓ Modelo específico disponível
+                </span>
+              )}
+            </div>
+            <input
+              style={{
+                width: "100%", background: "#0d0d0d",
+                border: `1px solid ${hasArtefactModel ? "#16a34a66" : "#222"}`,
+                borderRadius: 6, color: "#e8e8e8", fontSize: 14,
+                padding: "9px 12px", outline: "none", boxSizing: "border-box",
+              }}
+              placeholder="Ex.: UML, DER, RNF, Wireframe, Pitch..."
+              value={form.artefactName}
+              onChange={(e) => setForm((p) => ({ ...p, artefactName: e.target.value }))}
+            />
+            {knownArtefactNames.length > 0 && (
+              <div style={{ marginTop: 6, display: "flex", flexWrap: "wrap", gap: 4 }}>
+                {knownArtefactNames.map((name) => (
+                  <button
+                    key={name}
+                    type="button"
+                    onClick={() => setForm((p) => ({ ...p, artefactName: name }))}
+                    style={{
+                      fontSize: 11, padding: "2px 8px", borderRadius: 20, cursor: "pointer",
+                      background: form.artefactName.toLowerCase() === name ? "#1e3a5f" : "#141414",
+                      border: `1px solid ${form.artefactName.toLowerCase() === name ? "#3b82f6" : "#2a2a2a"}`,
+                      color: form.artefactName.toLowerCase() === name ? "#60a5fa" : "#64748b",
+                    }}
+                  >
+                    {name}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+
           <Field
             label="Descrição da atividade"
             placeholder="Cole aqui o enunciado da atividade..."
@@ -127,7 +194,7 @@ export default function Simular() {
           onReset={() => {
             setStep("input");
             reset();
-            setForm({ subject: "", activityDescription: "", studentResponse: "" });
+            setForm({ subject: "", artefactName: "", activityDescription: "", studentResponse: "" });
           }}
         />
       ) : null}

@@ -26,6 +26,8 @@ model Activity {
   isActive    Boolean  @default(true)
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
+  artefactContexts ArtefactContext[]
+  groupFeedbacks   GroupFeedback[]
 
   @@index([subject])
   @@index([isActive])
@@ -51,6 +53,7 @@ model CorrectionCase {
   createdAt           DateTime     @default(now())
   updatedAt           DateTime     @updatedAt
   pseudoPrompt        PseudoPrompt?
+  groupFeedback       GroupFeedback?
 
   @@index([createdAt])
   @@index([tags])
@@ -73,6 +76,7 @@ model PseudoPrompt {
 model Simulation {
   id                  String       @id @default(cuid())
   subject             String       @default("Geral")
+  artefactName        String       @default("")
   activityDescription String
   studentResponse     String
   similarCaseIds      String[]
@@ -87,4 +91,110 @@ model Simulation {
 
   @@index([createdAt])
   @@index([subject])
+  @@index([artefactName])
+}
+
+model ProjectContext {
+  id                String                     @id @default(cuid())
+  name              String
+  discipline        String                     @default("")
+  description       String
+  tapText           String                     @default("")
+  globalRules       Json                       @default("{}")
+  createdAt         DateTime                   @default(now())
+  updatedAt         DateTime                   @updatedAt
+  artefactContexts  ArtefactContext[]
+  uploadedDocuments UploadedDocument[]
+  correctionModels  ArtefactCorrectionModel[]
+
+  @@index([name])
+  @@index([createdAt])
+}
+
+model ArtefactContext {
+  id                   String                     @id @default(cuid())
+  artefactName         String
+  projectContextId     String
+  activityId           String?
+  description          String
+  wadText              String                     @default("")
+  wodText              String                     @default("")
+  expectedStructure    String                     @default("")
+  explicitRequirements String[]                   @default([])
+  implicitRequirements String[]                   @default([])
+  deliverables         String[]                   @default([])
+  createdAt            DateTime                   @default(now())
+  updatedAt            DateTime                   @updatedAt
+  projectContext       ProjectContext             @relation(fields: [projectContextId], references: [id], onDelete: Cascade)
+  activity             Activity?                  @relation(fields: [activityId], references: [id], onDelete: SetNull)
+  uploadedDocuments    UploadedDocument[]
+  groupFeedbacks       GroupFeedback[]
+  correctionModels     ArtefactCorrectionModel[]
+
+  @@index([artefactName])
+  @@index([projectContextId])
+  @@index([activityId])
+}
+
+model UploadedDocument {
+  id               String          @id @default(cuid())
+  fileName         String
+  mimeType         String
+  documentType     String
+  textContent      String
+  preview          String
+  projectContextId String?
+  artefactContextId String?
+  createdAt        DateTime        @default(now())
+  projectContext   ProjectContext? @relation(fields: [projectContextId], references: [id], onDelete: Cascade)
+  artefactContext  ArtefactContext? @relation(fields: [artefactContextId], references: [id], onDelete: Cascade)
+
+  @@index([documentType])
+  @@index([projectContextId])
+  @@index([artefactContextId])
+}
+
+model GroupFeedback {
+  id                  String          @id @default(cuid())
+  groupName           String
+  activityDescription String
+  feedback            String
+  score               Float
+  maxScore            Float           @default(10)
+  artefactContextId   String
+  activityId          String?
+  correctionCaseId    String?         @unique
+  createdAt           DateTime        @default(now())
+  artefactContext     ArtefactContext @relation(fields: [artefactContextId], references: [id], onDelete: Cascade)
+  activity            Activity?       @relation(fields: [activityId], references: [id], onDelete: SetNull)
+  correctionCase      CorrectionCase? @relation(fields: [correctionCaseId], references: [id], onDelete: SetNull)
+
+  @@index([artefactContextId])
+  @@index([activityId])
+  @@index([groupName])
+}
+
+model ArtefactCorrectionModel {
+  id                   String          @id @default(cuid())
+  artefactName         String
+  projectContextId     String
+  artefactContextId    String
+  inferredPrompt       String
+  inferredRules        Json
+  inferredPatterns     Json
+  detectedPenalties    Json
+  correctionStyle      Json
+  rigorLevel           String
+  confidence           Int
+  groupFeedbackCount   Int             @default(0)
+  generatedAt          DateTime        @default(now())
+  createdAt            DateTime        @default(now())
+  updatedAt            DateTime        @updatedAt
+  projectContext       ProjectContext  @relation(fields: [projectContextId], references: [id], onDelete: Cascade)
+  artefactContext      ArtefactContext @relation(fields: [artefactContextId], references: [id], onDelete: Cascade)
+
+  @@index([artefactName])
+  @@index([projectContextId])
+  @@index([artefactContextId])
+  @@index([generatedAt])
 }

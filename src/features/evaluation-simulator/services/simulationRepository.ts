@@ -29,6 +29,7 @@ export async function saveSimulation(params: {
   const row: SimulationWithPrompt = await getPrisma().simulation.create({
     data: {
       subject: params.input.subject,
+      artefactName: params.input.artefactName ?? "",
       activityDescription: params.input.activityDescription,
       studentResponse: params.input.studentResponse,
       similarCaseIds: params.similarCases.map((item) => item.id),
@@ -57,6 +58,7 @@ export async function saveSimulation(params: {
 type SimulationWithPrompt = {
   id: string;
   subject: string;
+  artefactName: string;
   activityDescription: string;
   studentResponse: string;
   similarCaseIds: string[];
@@ -86,6 +88,7 @@ function mapSimulation(
   return {
     id: row.id,
     subject: row.subject,
+    artefactName: row.artefactName,
     activityDescription: row.activityDescription,
     studentResponse: row.studentResponse,
     createdAt: row.createdAt.toISOString(),

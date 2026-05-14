@@ -26,6 +26,13 @@ export default function Home() {
           </span>
         </Link>
 
+        <Link href="/artefatos" style={cardStyle}>
+          <strong>Modelos por Artefato</strong>
+          <span style={{ color: "#888", fontSize: 13 }}>
+            Use TAP, WAD/WOD e feedbacks de grupos para modelar um artefato específico
+          </span>
+        </Link>
+
         <Link href="/dashboard" style={cardStyle}>
           <strong>Dashboard</strong>
           <span style={{ color: "#888", fontSize: 13 }}>
