@@ -74,7 +74,9 @@ export default function ArtefactDetailPage() {
     }
   }, [artefactId]);
 
-  useEffect(() => { fetchArtefact(); }, [fetchArtefact]);
+  useEffect(() => {
+    void Promise.resolve().then(fetchArtefact);
+  }, [fetchArtefact]);
 
   async function handleGenerateModel() {
     setIsGenerating(true);

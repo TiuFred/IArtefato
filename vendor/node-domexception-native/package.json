@@ -1,6 +1,6 @@
 {
   "name": "node-domexception",
-  "version": "1.0.0-native",
+  "version": "1.0.0",
   "description": "Use the platform-native DOMException instead of the deprecated polyfill.",
   "main": "index.js",
   "license": "MIT",
