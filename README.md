@@ -7,6 +7,8 @@ MVP para inferir padrões de correção usados por professores com IA. O foco n�
 - Node.js compatível com Next.js 16
 - PostgreSQL acessível via `DATABASE_URL`
 - Chave do Google Gemini em `GEMINI_API_KEY`
+- Segredo de autenticação em `AUTH_SECRET`
+- Emails administradores em `ADMIN_EMAILS`
 
 As variáveis devem estar em `.env.local` na raiz do projeto ou exportadas no shell. Não versionar credenciais.
 
@@ -19,7 +21,25 @@ npm run prisma:migrate
 npm run dev
 ```
 
-O servidor usa a porta configurada em `package.json`: [http://localhost:3001](http://localhost:3001).
+O servidor usa a porta configurada em `package.json`: [http://localhost:3000](http://localhost:3000).
+
+## Deploy
+
+Configure estas variáveis no provedor de deploy:
+
+```txt
+DATABASE_URL
+GEMINI_API_KEY
+AUTH_SECRET
+ADMIN_EMAILS
+```
+
+`NEXTAUTH_SECRET` também é aceito como fallback, mas `AUTH_SECRET` é o nome recomendado pelo Auth.js.
+Gere um segredo forte com:
+
+```bash
+openssl rand -base64 32
+```
 
 ## Fluxo
 

@@ -6,6 +6,8 @@
 import type { NextAuthConfig } from "next-auth";
 
 export const authConfig: NextAuthConfig = {
+  secret: process.env.AUTH_SECRET ?? process.env.NEXTAUTH_SECRET,
+  trustHost: true,
   providers: [], // Credentials é adicionado em auth.ts (Node.js)
   pages: {
     signIn: "/login",
