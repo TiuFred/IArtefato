@@ -10,13 +10,13 @@ import type {
 import { evaluationSimulationSchema } from "./schemas";
 
 export async function listSimulations(): Promise<EvaluationSimulationView[]> {
-  const rows = await getPrisma().simulation.findMany({
+  const rows: SimulationWithPrompt[] = await getPrisma().simulation.findMany({
     include: { pseudoPrompt: true },
     orderBy: { createdAt: "desc" },
   });
 
-  return rows.map((row) =>
-    mapSimulation(row, row.similarCaseIds.map((id) => ({ id })))
+  return rows.map((row: SimulationWithPrompt) =>
+    mapSimulation(row, row.similarCaseIds.map((id: string) => ({ id })))
   );
 }
 
@@ -26,7 +26,7 @@ export async function saveSimulation(params: {
   combinedPseudoPrompt: string;
   similarCases: SimilarCaseView[];
 }): Promise<EvaluationSimulationView> {
-  const row = await getPrisma().simulation.create({
+  const row: SimulationWithPrompt = await getPrisma().simulation.create({
     data: {
       subject: params.input.subject,
       activityDescription: params.input.activityDescription,

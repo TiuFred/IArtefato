@@ -6,17 +6,17 @@ import { correctionInferenceSchema } from "./schemas";
 import type { CreateCorrectionCaseInput } from "./validation";
 
 export async function listCorrectionCases(subject?: string): Promise<CorrectionCaseView[]> {
-  const rows = await getPrisma().correctionCase.findMany({
+  const rows: CorrectionCaseWithPrompt[] = await getPrisma().correctionCase.findMany({
     where: subject ? { subject } : undefined,
     include: { pseudoPrompt: true },
     orderBy: { createdAt: "desc" },
   });
 
-  return rows.map(mapCorrectionCase);
+  return rows.map((row: CorrectionCaseWithPrompt) => mapCorrectionCase(row));
 }
 
 export async function getCorrectionCase(id: string): Promise<CorrectionCaseView | null> {
-  const row = await getPrisma().correctionCase.findUnique({
+  const row: CorrectionCaseWithPrompt | null = await getPrisma().correctionCase.findUnique({
     where: { id },
     include: { pseudoPrompt: true },
   });
@@ -32,7 +32,7 @@ export async function saveCorrectionCase(params: {
   input: CreateCorrectionCaseInput;
   inference: CorrectionInferenceOutput;
 }): Promise<CorrectionCaseView> {
-  const row = await getPrisma().correctionCase.create({
+  const row: CorrectionCaseWithPrompt = await getPrisma().correctionCase.create({
     data: {
       subject: params.input.subject,
       subjects: params.input.subjects,
