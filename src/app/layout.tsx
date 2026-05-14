@@ -2,16 +2,42 @@ import type { Metadata } from "next";
 import "./globals.css";
 import Link from "next/link";
 import { Toaster } from "sonner";
+import { redirect } from "next/navigation";
+import { headers } from "next/headers";
 import { getSession } from "@/lib/session";
 import { LogoutButton } from "@/components/layout/LogoutButton";
+import { getPrisma } from "@/services/database/prisma";
 
 export const metadata: Metadata = {
   title: "IArtefato",
   description: "Inferência de padrões de correção acadêmica",
 };
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const db = () => getPrisma() as unknown as Record<string, any>;
+
 export default async function RootLayout({ children }: { children: React.ReactNode }) {
   const session = await getSession();
+  const headersList = await headers();
+  const pathname = headersList.get("x-pathname") ?? headersList.get("x-invoke-path") ?? "";
+
+  // Pages that don't need group check
+  const isPublicRoute =
+    !session ||
+    pathname.startsWith("/login") ||
+    pathname.startsWith("/api") ||
+    pathname.startsWith("/aguardando-grupo");
+
+  // Block non-admin users without a group
+  if (!isPublicRoute && !session.isAdmin) {
+    const membership = await db().groupMember.findFirst({
+      where: { userId: session.id },
+      select: { groupName: true },
+    });
+    if (!membership) {
+      redirect("/aguardando-grupo");
+    }
+  }
 
   return (
     <html lang="pt-BR">
@@ -26,24 +52,27 @@ export default async function RootLayout({ children }: { children: React.ReactNo
               IArtefato
             </Link>
 
+            {/* Links for all logged-in users */}
             <Link href="/dashboard" style={navLinkStyle}>Dashboard</Link>
             <Link href="/base-correcao" style={navLinkStyle}>Base de Correção</Link>
-            <Link href="/artefatos" style={navLinkStyle}>Artefatos</Link>
             <Link href="/simular" style={navLinkStyle}>Simular</Link>
-            <Link href="/padroes" style={navLinkStyle}>Padrões</Link>
             <Link href="/tutorial" style={navLinkStyle}>Tutorial</Link>
 
+            {/* Admin-only links */}
             {session.isAdmin && (
-              <Link href="/admin" style={{
-                ...navLinkStyle,
-                background: "#7c3aed20", border: "1px solid #7c3aed40",
-                color: "#a78bfa", fontWeight: 600,
-              }}>
-                Admin
-              </Link>
+              <>
+                <Link href="/padroes" style={navLinkStyle}>Padrões</Link>
+                <Link href="/admin" style={{
+                  ...navLinkStyle,
+                  background: "#7c3aed20", border: "1px solid #7c3aed40",
+                  color: "#a78bfa", fontWeight: 600,
+                }}>
+                  Admin
+                </Link>
+              </>
             )}
 
-            {/* Usuário + logout */}
+            {/* User info + logout */}
             <div style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: 12 }}>
               <span style={{ fontSize: 13, color: "#475569" }}>
                 {session.name || session.email}
