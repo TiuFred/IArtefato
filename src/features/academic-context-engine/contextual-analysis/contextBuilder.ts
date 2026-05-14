@@ -24,8 +24,13 @@ export function buildArtefactSemanticContext(params: {
     `REQUISITOS IMPLICITOS:\n${params.artefactContext.implicitRequirements.join("\n")}`,
     `ENTREGAVEIS:\n${params.artefactContext.deliverables.join("\n")}`,
     `DOCUMENTOS:\n${params.documents.map((doc) => `[${doc.documentType}] ${doc.fileName}\n${doc.preview}`).join("\n\n")}`,
-    `FEEDBACKS COLETIVOS:\n${params.groupFeedbacks
-      .map((item) => `${item.groupName} (${item.score}/${item.maxScore})\nAtividade: ${item.activityDescription}\nFeedback: ${item.feedback}`)
+    `FEEDBACKS COLETIVOS (${params.groupFeedbacks.length} grupos):\n${params.groupFeedbacks
+      .map((item) => {
+        const wadSection = item.wadText
+          ? `WAD ENTREGUE PELO GRUPO:\n${item.wadText.substring(0, 4000)}${item.wadText.length > 4000 ? "\n[... truncado ...]" : ""}`
+          : "WAD: nao submetido";
+        return `--- ${item.groupName} (${item.score}/${item.maxScore}) ---\nAtividade: ${item.activityDescription}\n${wadSection}\nFeedback recebido: ${item.feedback}`;
+      })
       .join("\n\n")}`,
   ].join("\n\n---\n\n");
 }

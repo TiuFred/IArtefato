@@ -60,6 +60,8 @@ type GroupFeedbackRow = {
   feedback: string;
   score: number;
   maxScore: number;
+  wadText: string;
+  wadFileName: string;
   activityId: string | null;
   artefactContextId: string;
   createdAt: Date;
@@ -76,7 +78,8 @@ const includeArtefactContext = {
 
 export async function createArtefactContext(input: CreateArtefactContextInput): Promise<ArtefactContextView> {
   const parsedDocuments = await Promise.all(input.documents.map(parseAcademicDocument));
-  const row: ArtefactContextRow = await getPrisma().artefactContext.create({
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const row: ArtefactContextRow = await (getPrisma().artefactContext.create as any)({
     data: {
       artefactName: input.artefactName,
       projectContextId: input.projectContextId,
@@ -115,7 +118,8 @@ export async function createArtefactContext(input: CreateArtefactContextInput): 
 }
 
 export async function listArtefactContexts(): Promise<ArtefactContextView[]> {
-  const rows: ArtefactContextRow[] = await getPrisma().artefactContext.findMany({
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const rows: ArtefactContextRow[] = await (getPrisma().artefactContext.findMany as any)({
     include: includeArtefactContext,
     orderBy: { createdAt: "desc" },
   });
@@ -123,7 +127,8 @@ export async function listArtefactContexts(): Promise<ArtefactContextView[]> {
 }
 
 export async function getArtefactContext(id: string): Promise<ArtefactContextView | null> {
-  const row: ArtefactContextRow | null = await getPrisma().artefactContext.findUnique({
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const row: ArtefactContextRow | null = await (getPrisma().artefactContext.findUnique as any)({
     where: { id },
     include: includeArtefactContext,
   });
@@ -131,7 +136,8 @@ export async function getArtefactContext(id: string): Promise<ArtefactContextVie
 }
 
 export async function appendGroupFeedback(input: AppendGroupFeedbackInput): Promise<GroupFeedbackView> {
-  const row: GroupFeedbackRow = await getPrisma().groupFeedback.create({
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const row: GroupFeedbackRow = await (getPrisma().groupFeedback.create as any)({
     data: {
       artefactContextId: input.artefactContextId,
       groupName: input.groupName,
@@ -139,6 +145,8 @@ export async function appendGroupFeedback(input: AppendGroupFeedbackInput): Prom
       feedback: input.feedback,
       score: input.score,
       maxScore: input.maxScore,
+      wadText: input.wadText ?? "",
+      wadFileName: input.wadFileName ?? "",
       activityId: input.activityId ?? null,
     },
   });
@@ -195,6 +203,8 @@ function mapGroupFeedback(row: GroupFeedbackRow): GroupFeedbackView {
     feedback: row.feedback,
     score: row.score,
     maxScore: row.maxScore,
+    wadText: row.wadText,
+    wadFileName: row.wadFileName,
     activityId: row.activityId,
     createdAt: row.createdAt.toISOString(),
   };

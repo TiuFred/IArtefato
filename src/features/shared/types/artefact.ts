@@ -58,12 +58,16 @@ export interface GroupFeedbackInput {
   feedback: string;
   score: number;
   maxScore: number;
+  wadText?: string;
+  wadFileName?: string;
   activityId?: string | null;
 }
 
 export interface GroupFeedbackView extends GroupFeedbackInput {
   id: string;
   artefactContextId: string;
+  wadText: string;
+  wadFileName: string;
   createdAt: string;
 }
 

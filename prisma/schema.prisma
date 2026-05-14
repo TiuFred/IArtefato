@@ -7,12 +7,13 @@ datasource db {
 }
 
 model User {
-  id        String   @id @default(cuid())
-  email     String   @unique
-  password  String
-  name      String   @default("")
-  isAdmin   Boolean  @default(false)
-  createdAt DateTime @default(now())
+  id               String        @id @default(cuid())
+  email            String        @unique
+  password         String
+  name             String        @default("")
+  isAdmin          Boolean       @default(false)
+  createdAt        DateTime      @default(now())
+  groupMemberships GroupMember[]
 
   @@index([email])
 }
@@ -106,6 +107,7 @@ model ProjectContext {
   artefactContexts  ArtefactContext[]
   uploadedDocuments UploadedDocument[]
   correctionModels  ArtefactCorrectionModel[]
+  groupMembers      GroupMember[]
 
   @@index([name])
   @@index([createdAt])
@@ -161,6 +163,8 @@ model GroupFeedback {
   feedback            String
   score               Float
   maxScore            Float           @default(10)
+  wadText             String          @default("")
+  wadFileName         String          @default("")
   artefactContextId   String
   activityId          String?
   correctionCaseId    String?         @unique
@@ -172,6 +176,21 @@ model GroupFeedback {
   @@index([artefactContextId])
   @@index([activityId])
   @@index([groupName])
+}
+
+model GroupMember {
+  id               String         @id @default(cuid())
+  userId           String
+  groupName        String
+  projectContextId String
+  createdAt        DateTime       @default(now())
+  user             User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  projectContext   ProjectContext @relation(fields: [projectContextId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, projectContextId])
+  @@index([userId])
+  @@index([groupName])
+  @@index([projectContextId])
 }
 
 model ArtefactCorrectionModel {

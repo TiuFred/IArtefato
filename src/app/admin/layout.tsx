@@ -5,7 +5,8 @@ import { redirect } from "next/navigation";
 const adminNav = [
   { href: "/admin", label: "Visão geral", icon: "◈" },
   { href: "/admin/atividades", label: "Atividades", icon: "◉" },
-  { href: "/admin/prompts", label: "Prompts de correção", icon: "⬡" },
+  { href: "/admin/grupos", label: "Grupos de alunos", icon: "⬡" },
+  { href: "/admin/prompts", label: "Prompts de correção", icon: "▣" },
   { href: "/admin/usuarios", label: "Usuários", icon: "◆" },
 ];
 

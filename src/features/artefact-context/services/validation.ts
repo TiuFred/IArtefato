@@ -16,6 +16,8 @@ export const groupFeedbackSchema = z.object({
   feedback: z.string().trim().min(10, "Feedback obrigatorio."),
   score: z.coerce.number({ error: "Nota obrigatoria." }).min(0),
   maxScore: z.coerce.number().min(1).default(10),
+  wadText: z.string().optional().default(""),
+  wadFileName: z.string().optional().default(""),
   activityId: z.string().nullable().optional(),
 });
 

@@ -60,6 +60,16 @@ export default function ArtefactDetailPage() {
   const [isAddingFeedback, setIsAddingFeedback] = useState(false);
   const [showAddForm, setShowAddForm] = useState(false);
   const [feedbackForm, setFeedbackForm] = useState<GroupFeedbackInput>(emptyFeedback());
+  const [myGroupName, setMyGroupName] = useState<string | null>(null);
+
+  // Load current user's group membership for this project
+  useEffect(() => {
+    if (!artefact?.projectContextId) return;
+    fetch(`/api/group-members/me?projectContextId=${artefact.projectContextId}`)
+      .then((r) => r.json())
+      .then((p) => { if (p.groupName) setMyGroupName(p.groupName); })
+      .catch(() => {});
+  }, [artefact?.projectContextId]);
 
   const fetchArtefact = useCallback(async () => {
     try {
@@ -301,6 +311,46 @@ export default function ArtefactDetailPage() {
               />
             </div>
 
+            {/* WAD upload */}
+            <div style={{ marginBottom: 14 }}>
+              <label style={label}>
+                WAD do Grupo <span style={{ color: "#475569", fontWeight: 400 }}>(opcional · arquivo .md)</span>
+              </label>
+              {feedbackForm.wadFileName ? (
+                <div style={{
+                  display: "flex", alignItems: "center", gap: 10, padding: "8px 12px",
+                  background: "#14532d22", border: "1px solid #16a34a44", borderRadius: 6,
+                }}>
+                  <span style={{ fontSize: 13, color: "#4ade80" }}>📄 {feedbackForm.wadFileName}</span>
+                  <button
+                    type="button"
+                    style={{ marginLeft: "auto", fontSize: 11, background: "none", border: "none", color: "#64748b", cursor: "pointer" }}
+                    onClick={() => setFeedbackForm((f) => ({ ...f, wadText: "", wadFileName: "" }))}
+                  >
+                    remover
+                  </button>
+                </div>
+              ) : (
+                <input
+                  type="file"
+                  accept=".md,.txt"
+                  style={{ ...input, padding: "6px 12px", cursor: "pointer" }}
+                  onChange={async (e) => {
+                    const file = e.target.files?.[0];
+                    if (!file) return;
+                    const text = await file.text();
+                    setFeedbackForm((f) => ({ ...f, wadText: text, wadFileName: file.name }));
+                    toast.success(`WAD carregado: ${file.name}`);
+                  }}
+                />
+              )}
+              {feedbackForm.wadText && (
+                <p style={{ fontSize: 11, color: "#475569", marginTop: 4 }}>
+                  {feedbackForm.wadText.length.toLocaleString()} caracteres carregados
+                </p>
+              )}
+            </div>
+
             <div style={{ marginBottom: 18 }}>
               <label style={label}>Feedback Recebido (texto completo)</label>
               <textarea
@@ -322,31 +372,64 @@ export default function ArtefactDetailPage() {
           <p style={{ color: "#475569", fontSize: 14 }}>Nenhum feedback registrado ainda.</p>
         ) : (
           <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-            {artefact.groupFeedbacks.map((fb, i) => (
-              <div key={fb.id} style={{
-                background: "#0d0d0d", border: "1px solid #1e293b", borderRadius: 8, padding: "14px 16px",
-              }}>
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
-                  <span style={{ fontWeight: 600, color: "#e2e8f0", fontSize: 14 }}>
-                    #{i + 1} · {fb.groupName}
-                  </span>
-                  <span style={{
-                    fontSize: 13, fontWeight: 700,
-                    color: (fb.score / fb.maxScore) >= 0.7 ? "#22c55e" : (fb.score / fb.maxScore) >= 0.4 ? "#f59e0b" : "#ef4444",
-                  }}>
-                    {fb.score}/{fb.maxScore}
-                  </span>
-                </div>
-                {fb.activityDescription && (
-                  <p style={{ fontSize: 12, color: "#475569", marginBottom: 6 }}>
-                    <em>{fb.activityDescription}</em>
+            {artefact.groupFeedbacks.map((fb, i) => {
+              const isMyGroup = myGroupName ? fb.groupName === myGroupName : true;
+              const hasWad = !!fb.wadText;
+              return (
+                <div key={fb.id} style={{
+                  background: "#0d0d0d",
+                  border: `1px solid ${isMyGroup && hasWad ? "#16a34a44" : "#1e293b"}`,
+                  borderRadius: 8, padding: "14px 16px",
+                }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                      <span style={{ fontWeight: 600, color: "#e2e8f0", fontSize: 14 }}>
+                        #{i + 1} · {fb.groupName}
+                      </span>
+                      {hasWad && isMyGroup && (
+                        <span style={{ fontSize: 11, padding: "2px 7px", borderRadius: 20, background: "#14532d44", color: "#4ade80", border: "1px solid #16a34a44" }}>
+                          📄 WAD: {fb.wadFileName || "anexado"}
+                        </span>
+                      )}
+                      {hasWad && !isMyGroup && (
+                        <span style={{ fontSize: 11, padding: "2px 7px", borderRadius: 20, background: "#1e293b", color: "#475569" }}>
+                          🔒 WAD privado
+                        </span>
+                      )}
+                    </div>
+                    <span style={{
+                      fontSize: 13, fontWeight: 700,
+                      color: (fb.score / fb.maxScore) >= 0.7 ? "#22c55e" : (fb.score / fb.maxScore) >= 0.4 ? "#f59e0b" : "#ef4444",
+                    }}>
+                      {fb.score}/{fb.maxScore}
+                    </span>
+                  </div>
+                  {fb.activityDescription && (
+                    <p style={{ fontSize: 12, color: "#475569", marginBottom: 6 }}>
+                      <em>{fb.activityDescription}</em>
+                    </p>
+                  )}
+                  <p style={{ fontSize: 13, color: "#94a3b8", lineHeight: 1.5, whiteSpace: "pre-wrap" }}>
+                    {fb.feedback}
                   </p>
-                )}
-                <p style={{ fontSize: 13, color: "#94a3b8", lineHeight: 1.5, whiteSpace: "pre-wrap" }}>
-                  {fb.feedback}
-                </p>
-              </div>
-            ))}
+                  {/* Show WAD preview only for own group */}
+                  {hasWad && isMyGroup && (
+                    <details style={{ marginTop: 10 }}>
+                      <summary style={{ fontSize: 12, color: "#64748b", cursor: "pointer" }}>
+                        Ver conteúdo do WAD ({fb.wadText!.length.toLocaleString()} chars)
+                      </summary>
+                      <pre style={{
+                        fontSize: 11, color: "#64748b", background: "#080808", borderRadius: 6,
+                        padding: "10px 12px", marginTop: 8, overflow: "auto", maxHeight: 300,
+                        whiteSpace: "pre-wrap", wordBreak: "break-word",
+                      }}>
+                        {fb.wadText}
+                      </pre>
+                    </details>
+                  )}
+                </div>
+              );
+            })}
           </div>
         )}
 
