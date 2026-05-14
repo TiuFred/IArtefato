@@ -1,0 +1,90 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model User {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  password  String
+  name      String   @default("")
+  isAdmin   Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  @@index([email])
+}
+
+model Activity {
+  id          String   @id @default(cuid())
+  subject     String
+  title       String
+  description String
+  maxScore    Float    @default(10)
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([subject])
+  @@index([isActive])
+}
+
+model CorrectionCase {
+  id                  String       @id @default(cuid())
+  subject             String       @default("Geral")
+  subjects            String[]     @default([])
+  activityId          String?
+  activityDescription String
+  studentResponse     String
+  feedbackReceived    String
+  score               Float
+  maxScore            Float        @default(10)
+  criteria            Json
+  penalties           Json
+  correctionStyle     Json
+  technicalRigor      Json
+  structuralFocus     Json
+  tags                String[]
+  confidence          Int
+  createdAt           DateTime     @default(now())
+  updatedAt           DateTime     @updatedAt
+  pseudoPrompt        PseudoPrompt?
+
+  @@index([createdAt])
+  @@index([tags])
+  @@index([subject])
+  @@index([subjects])
+  @@index([activityId])
+}
+
+model PseudoPrompt {
+  id               String          @id @default(cuid())
+  content          String
+  patternSummary   Json
+  correctionCaseId String?         @unique
+  simulationId     String?         @unique
+  createdAt        DateTime        @default(now())
+  correctionCase   CorrectionCase? @relation(fields: [correctionCaseId], references: [id], onDelete: Cascade)
+  simulation       Simulation?     @relation(fields: [simulationId], references: [id], onDelete: Cascade)
+}
+
+model Simulation {
+  id                  String       @id @default(cuid())
+  subject             String       @default("Geral")
+  activityDescription String
+  studentResponse     String
+  similarCaseIds      String[]
+  predictedFeedback   String
+  predictedScore      Float
+  maxScore            Float        @default(10)
+  risks               Json
+  missingRequirements Json
+  confidence          Int
+  createdAt           DateTime     @default(now())
+  pseudoPrompt        PseudoPrompt?
+
+  @@index([createdAt])
+  @@index([subject])
+}
