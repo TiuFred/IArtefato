@@ -60,11 +60,11 @@ export default function AtividadesAdminPage() {
       body: JSON.stringify(form),
     });
     if (res.ok) {
-      toast.success("Atividade criada.");
+      toast.success("Artefato criado.");
       setForm(EMPTY_FORM);
       load();
     } else {
-      toast.error("Erro ao criar atividade.");
+      toast.error("Erro ao criar artefato.");
     }
     setSaving(false);
   }
@@ -89,27 +89,24 @@ export default function AtividadesAdminPage() {
   }
 
   async function handleDelete(id: string) {
-    if (!confirm("Excluir esta atividade?")) return;
+    if (!confirm("Excluir este artefato?")) return;
     await fetch(`/api/admin/activities/${id}`, { method: "DELETE" });
-    toast.success("Excluído.");
+    toast.success("Excluido.");
     load();
   }
 
   return (
     <div>
-      <h1 style={{ fontSize: 20, fontWeight: 700, color: "#e2e8f0", marginBottom: 6 }}>Atividades predefinidas</h1>
+      <h1 style={{ fontSize: 20, fontWeight: 700, color: "#e2e8f0", marginBottom: 6 }}>Artefatos</h1>
       <p style={{ fontSize: 14, color: "#475569", marginBottom: 28 }}>
-        Os enunciados que você cadastrar aqui ficam disponíveis para os alunos selecionarem na Base de Correção.
+        Os artefatos cadastrados aqui ficam disponiveis para todos os grupos usarem na base de correcao e nas simulacoes.
       </p>
 
-      {/* Formulário de criação */}
       <div style={{ background: "#141414", border: "1px solid #1e1e2e", borderRadius: 12, padding: "20px 24px", marginBottom: 28 }}>
-        <h2 style={{ fontSize: 15, fontWeight: 600, color: "#e2e8f0", marginBottom: 16 }}>Nova atividade</h2>
+        <h2 style={{ fontSize: 15, fontWeight: 600, color: "#e2e8f0", marginBottom: 16 }}>Novo artefato</h2>
         <form onSubmit={handleCreate} style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-
-          {/* Matéria */}
           <div>
-            <label style={{ fontSize: 12, color: "#64748b", display: "block", marginBottom: 8 }}>Matéria</label>
+            <label style={{ fontSize: 12, color: "#64748b", display: "block", marginBottom: 8 }}>Materia</label>
             <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
               {SUBJECTS.map((s) => {
                 const c = SUBJECT_COLORS[s];
@@ -129,17 +126,17 @@ export default function AtividadesAdminPage() {
           </div>
 
           <FormRow>
-            <FormInput label="Título da atividade" placeholder="Ex: Plano de negócios — Módulo 3"
+            <FormInput label="Titulo do artefato" placeholder="Ex: Plano de negocios - Modulo 3"
               value={form.title} onChange={(v) => setForm((p) => ({ ...p, title: v }))} />
-            <FormInput label="Nota máxima" type="number" placeholder="10"
+            <FormInput label="Nota maxima" type="number" placeholder="10"
               value={String(form.maxScore)} onChange={(v) => setForm((p) => ({ ...p, maxScore: Number(v) }))}
               style={{ maxWidth: 100 }} />
           </FormRow>
 
           <div>
-            <label style={{ fontSize: 12, color: "#64748b", display: "block", marginBottom: 6 }}>Descrição / Enunciado</label>
+            <label style={{ fontSize: 12, color: "#64748b", display: "block", marginBottom: 6 }}>Descricao / Instrucoes</label>
             <textarea
-              rows={4} placeholder="Cole aqui o enunciado completo da atividade..."
+              rows={4} placeholder="Cole aqui as instrucoes completas do artefato..."
               value={form.description} onChange={(e) => setForm((p) => ({ ...p, description: e.target.value }))}
               style={{ width: "100%", background: "#0d0d0d", border: "1px solid #262626", borderRadius: 8, padding: "10px 12px", color: "#e8e8e8", fontSize: 14, fontFamily: "inherit", resize: "vertical" }}
             />
@@ -147,14 +144,13 @@ export default function AtividadesAdminPage() {
 
           <button type="submit" disabled={saving}
             style={{ alignSelf: "flex-start", padding: "8px 20px", background: saving ? "#1e1e2e" : "#4f8ef7", color: saving ? "#475569" : "#fff", border: "none", borderRadius: 8, fontWeight: 600, fontSize: 14, cursor: saving ? "wait" : "pointer" }}>
-            {saving ? "Salvando..." : "+ Criar atividade"}
+            {saving ? "Salvando..." : "+ Criar artefato"}
           </button>
         </form>
       </div>
 
-      {/* Lista de atividades */}
       <h2 style={{ fontSize: 15, fontWeight: 600, color: "#e2e8f0", marginBottom: 12 }}>
-        {loading ? "Carregando..." : `${activities.length} atividade${activities.length !== 1 ? "s" : ""} cadastrada${activities.length !== 1 ? "s" : ""}`}
+        {loading ? "Carregando..." : `${activities.length} artefato${activities.length !== 1 ? "s" : ""} cadastrado${activities.length !== 1 ? "s" : ""}`}
       </h2>
 
       <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
@@ -169,10 +165,10 @@ export default function AtividadesAdminPage() {
             }}>
               {isEditing ? (
                 <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-                  <FormInput label="Título" value={editForm.title ?? act.title}
+                  <FormInput label="Titulo" value={editForm.title ?? act.title}
                     onChange={(v) => setEditForm((p) => ({ ...p, title: v }))} />
                   <div>
-                    <label style={{ fontSize: 12, color: "#64748b", display: "block", marginBottom: 6 }}>Descrição</label>
+                    <label style={{ fontSize: 12, color: "#64748b", display: "block", marginBottom: 6 }}>Descricao</label>
                     <textarea rows={3} value={editForm.description ?? act.description}
                       onChange={(e) => setEditForm((p) => ({ ...p, description: e.target.value }))}
                       style={{ width: "100%", background: "#0d0d0d", border: "1px solid #262626", borderRadius: 6, padding: "8px 10px", color: "#e8e8e8", fontSize: 13, fontFamily: "inherit", resize: "vertical" }} />

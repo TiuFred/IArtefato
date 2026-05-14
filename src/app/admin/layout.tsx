@@ -3,11 +3,11 @@ import { getSession } from "@/lib/session";
 import { redirect } from "next/navigation";
 
 const adminNav = [
-  { href: "/admin", label: "Visão geral", icon: "◈" },
-  { href: "/admin/atividades", label: "Atividades", icon: "◉" },
+  { href: "/admin", label: "Visao geral", icon: "◈" },
+  { href: "/admin/atividades", label: "Artefatos", icon: "◉" },
   { href: "/admin/grupos", label: "Grupos de alunos", icon: "⬡" },
-  { href: "/admin/prompts", label: "Prompts de correção", icon: "▣" },
-  { href: "/admin/usuarios", label: "Usuários", icon: "◆" },
+  { href: "/admin/prompts", label: "Prompts de correcao", icon: "▣" },
+  { href: "/admin/usuarios", label: "Usuarios", icon: "◆" },
 ];
 
 export default async function AdminLayout({ children }: { children: React.ReactNode }) {
@@ -16,7 +16,6 @@ export default async function AdminLayout({ children }: { children: React.ReactN
 
   return (
     <div style={{ display: "flex", gap: 0, marginTop: -36, minHeight: "calc(100vh - 52px)" }}>
-      {/* Sidebar admin */}
       <aside style={{
         width: 210, flexShrink: 0, background: "#0a0a0f",
         borderRight: "1px solid #1e1e2e", padding: "24px 0",
@@ -33,7 +32,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
         </div>
 
         <div style={{ fontSize: 10, color: "#334155", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.1em", padding: "0 16px 8px" }}>
-          Administração
+          Administracao
         </div>
 
         {adminNav.map(({ href, label, icon }) => (
@@ -65,7 +64,6 @@ export default async function AdminLayout({ children }: { children: React.ReactN
         </Link>
       </aside>
 
-      {/* Conteúdo */}
       <main style={{ flex: 1, padding: "32px 40px", overflowY: "auto" }}>
         {children}
       </main>

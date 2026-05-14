@@ -28,20 +28,19 @@ export default async function AdminPage() {
   });
 
   const stats = [
-    { label: "Usuários", value: userCount, href: "/admin/usuarios", color: "#a78bfa" },
-    { label: "Atividades predefinidas", value: activityCount, href: "/admin/atividades", color: "#4f8ef7" },
-    { label: "Correções cadastradas", value: correctionCount, href: null, color: "#34d399" },
-    { label: "Simulações realizadas", value: simulationCount, href: null, color: "#fbbf24" },
+    { label: "Usuarios", value: userCount, href: "/admin/usuarios", color: "#a78bfa" },
+    { label: "Artefatos", value: activityCount, href: "/admin/atividades", color: "#4f8ef7" },
+    { label: "Correcoes cadastradas", value: correctionCount, href: null, color: "#34d399" },
+    { label: "Simulacoes realizadas", value: simulationCount, href: null, color: "#fbbf24" },
   ];
 
   return (
     <div>
-      <h1 style={{ fontSize: 22, fontWeight: 700, color: "#e2e8f0", marginBottom: 6 }}>Visão geral</h1>
+      <h1 style={{ fontSize: 22, fontWeight: 700, color: "#e2e8f0", marginBottom: 6 }}>Visao geral</h1>
       <p style={{ fontSize: 14, color: "#475569", marginBottom: 28 }}>
-        Resumo de tudo que está acontecendo no IArtefato.
+        Resumo de tudo que esta acontecendo no IArtefato.
       </p>
 
-      {/* Stats */}
       <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 12, marginBottom: 32 }}>
         {stats.map(({ label, value, href, color }) => (
           <div key={label} style={{
@@ -59,12 +58,11 @@ export default async function AdminPage() {
         ))}
       </div>
 
-      {/* Atalhos admin */}
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 12, marginBottom: 32 }}>
         {[
-          { href: "/admin/atividades", icon: "◉", title: "Gerenciar atividades", desc: "Adicione enunciados que os alunos poderão usar", color: "#4f8ef7" },
-          { href: "/admin/prompts", icon: "⬡", title: "Ver prompts inferidos", desc: "Analise e edite os pseudo-prompts de cada matéria", color: "#34d399" },
-          { href: "/admin/usuarios", icon: "◆", title: "Gerenciar usuários", desc: "Crie contas e defina quem é administrador", color: "#a78bfa" },
+          { href: "/admin/atividades", icon: "◉", title: "Gerenciar artefatos", desc: "Cadastre os artefatos que todos os grupos poderao usar", color: "#4f8ef7" },
+          { href: "/admin/prompts", icon: "⬡", title: "Ver prompts inferidos", desc: "Analise e edite os pseudo-prompts de cada materia", color: "#34d399" },
+          { href: "/admin/usuarios", icon: "◆", title: "Gerenciar usuarios", desc: "Crie contas e defina quem e administrador", color: "#a78bfa" },
         ].map(({ href, icon, title, desc, color }) => (
           <Link key={href} href={href} style={{ textDecoration: "none" }}>
             <div style={{
@@ -80,14 +78,13 @@ export default async function AdminPage() {
         ))}
       </div>
 
-      {/* Correções recentes */}
       <h2 style={{ fontSize: 15, fontWeight: 600, color: "#e2e8f0", marginBottom: 12 }}>
-        Correções recentes (todos os usuários)
+        Correcoes recentes (todos os usuarios)
       </h2>
       <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
         {recentCorrections.length === 0 ? (
           <div style={{ padding: "20px", background: "#141414", border: "1px solid #1e1e2e", borderRadius: 8, color: "#475569", fontSize: 14 }}>
-            Nenhuma correção cadastrada ainda.
+            Nenhuma correcao cadastrada ainda.
           </div>
         ) : recentCorrections.map((c: RecentCorrection) => (
           <div key={c.id} style={{
