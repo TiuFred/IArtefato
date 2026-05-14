@@ -1,6 +1,5 @@
 import "server-only";
 
-import { Prisma } from "@prisma/client";
 import { getPrisma } from "@/services/database/prisma";
 import type {
   EvaluationSimulationInput,
@@ -55,9 +54,21 @@ export async function saveSimulation(params: {
   return mapSimulation(row, params.similarCases);
 }
 
-type SimulationWithPrompt = Prisma.SimulationGetPayload<{
-  include: { pseudoPrompt: true };
-}>;
+type SimulationWithPrompt = {
+  id: string;
+  subject: string;
+  activityDescription: string;
+  studentResponse: string;
+  similarCaseIds: string[];
+  predictedFeedback: string;
+  predictedScore: number;
+  maxScore: number;
+  risks: unknown;
+  missingRequirements: unknown;
+  confidence: number;
+  createdAt: Date;
+  pseudoPrompt: { content: string } | null;
+};
 
 function mapSimulation(
   row: SimulationWithPrompt,
@@ -84,6 +95,6 @@ function mapSimulation(
   };
 }
 
-function toJson(value: unknown): Prisma.InputJsonValue {
-  return value as Prisma.InputJsonValue;
+function toJson(value: unknown): never {
+  return value as never;
 }

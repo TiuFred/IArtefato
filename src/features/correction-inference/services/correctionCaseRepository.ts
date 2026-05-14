@@ -1,6 +1,5 @@
 import "server-only";
 
-import { Prisma } from "@prisma/client";
 import { getPrisma } from "@/services/database/prisma";
 import type { CorrectionCaseView, CorrectionInferenceOutput } from "@/features/shared/types";
 import { correctionInferenceSchema } from "./schemas";
@@ -70,9 +69,27 @@ export async function saveCorrectionCase(params: {
   return mapCorrectionCase(row);
 }
 
-type CorrectionCaseWithPrompt = Prisma.CorrectionCaseGetPayload<{
-  include: { pseudoPrompt: true };
-}>;
+type CorrectionCaseWithPrompt = {
+  id: string;
+  subject: string;
+  subjects: string[];
+  activityId: string | null;
+  activityDescription: string;
+  studentResponse: string;
+  feedbackReceived: string;
+  score: number;
+  maxScore: number;
+  criteria: unknown;
+  penalties: unknown;
+  correctionStyle: unknown;
+  technicalRigor: unknown;
+  structuralFocus: unknown;
+  tags: string[];
+  confidence: number;
+  createdAt: Date;
+  updatedAt: Date;
+  pseudoPrompt: { content: string } | null;
+};
 
 function mapCorrectionCase(row: CorrectionCaseWithPrompt): CorrectionCaseView {
   const inference = correctionInferenceSchema.parse({
@@ -102,6 +119,6 @@ function mapCorrectionCase(row: CorrectionCaseWithPrompt): CorrectionCaseView {
   };
 }
 
-function toJson(value: unknown): Prisma.InputJsonValue {
-  return value as Prisma.InputJsonValue;
+function toJson(value: unknown): never {
+  return value as never;
 }
