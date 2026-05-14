@@ -89,7 +89,7 @@ export default async function AdminPage() {
           <div style={{ padding: "20px", background: "#141414", border: "1px solid #1e1e2e", borderRadius: 8, color: "#475569", fontSize: 14 }}>
             Nenhuma correção cadastrada ainda.
           </div>
-        ) : recentCorrections.map((c) => (
+        ) : recentCorrections.map((c: RecentCorrection) => (
           <div key={c.id} style={{
             display: "flex", justifyContent: "space-between", alignItems: "center",
             padding: "12px 16px", background: "#141414", border: "1px solid #1e1e2e", borderRadius: 8,
