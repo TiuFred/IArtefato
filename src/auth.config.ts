@@ -1,6 +1,6 @@
 /**
  * auth.config.ts — Config edge-safe (sem DB, sem bcrypt)
- * Usado pelo middleware (Edge Runtime).
+ * Usado pelo proxy (Edge Runtime).
  */
 
 import type { NextAuthConfig } from "next-auth";
