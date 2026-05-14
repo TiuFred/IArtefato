@@ -39,6 +39,18 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
       orderBy: { createdAt: "asc" },
     });
 
+    if (!defaultProject && body.groupName) {
+      return NextResponse.json(
+        { error: "Cadastre um projeto antes de alocar grupos aos usuarios." },
+        { status: 400 }
+      );
+    }
+
+    const existingMemberships = await getPrisma().groupMember.findMany({
+      where: { userId: id },
+      select: { projectContextId: true },
+    });
+
     const user = await getPrisma().user.update({
       where: { id },
       data,
@@ -47,8 +59,11 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
 
     if (defaultProject && body.groupName !== undefined) {
       if (body.groupName === null) {
-        await getPrisma().groupMember.deleteMany({
-          where: { userId: id, projectContextId: defaultProject.id },
+        await getPrisma().groupMember.deleteMany({ where: { userId: id } });
+      } else if (existingMemberships.length > 0) {
+        await getPrisma().groupMember.updateMany({
+          where: { userId: id },
+          data: { groupName: body.groupName },
         });
       } else {
         await getPrisma().groupMember.upsert({
@@ -59,12 +74,11 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
       }
     }
 
-    const membership = defaultProject
-      ? await getPrisma().groupMember.findUnique({
-          where: { userId_projectContextId: { userId: id, projectContextId: defaultProject.id } },
-          select: { groupName: true },
-        })
-      : null;
+    const membership = await getPrisma().groupMember.findFirst({
+      where: { userId: id },
+      select: { groupName: true },
+      orderBy: { createdAt: "asc" },
+    });
 
     return NextResponse.json({
       data: {

@@ -12,24 +12,22 @@ async function requireAdmin() {
 export async function GET() {
   if (!(await requireAdmin())) return NextResponse.json({ error: "Nao autorizado." }, { status: 403 });
 
-  const defaultProject = await getPrisma().projectContext.findFirst({
-    select: { id: true },
-    orderBy: { createdAt: "asc" },
-  });
-
   const users = await getPrisma().user.findMany({
     select: { id: true, email: true, name: true, isAdmin: true, createdAt: true },
     orderBy: { createdAt: "asc" },
   });
 
-  const memberships = defaultProject
-    ? await getPrisma().groupMember.findMany({
-        where: { projectContextId: defaultProject.id },
-        select: { userId: true, groupName: true },
-      })
-    : [];
+  const memberships = await getPrisma().groupMember.findMany({
+    select: { userId: true, groupName: true, createdAt: true },
+    orderBy: { createdAt: "asc" },
+  });
 
-  const groupByUserId = new Map(memberships.map((membership) => [membership.userId, membership.groupName]));
+  const groupByUserId = new Map<string, string>();
+  for (const membership of memberships) {
+    if (!groupByUserId.has(membership.userId)) {
+      groupByUserId.set(membership.userId, membership.groupName);
+    }
+  }
 
   return NextResponse.json({
     data: users.map((user) => ({
