@@ -31,7 +31,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
   // Block non-admin users without a group
   if (!isPublicRoute && !session.isAdmin) {
     const membership = await db().groupMember.findFirst({
-      where: { userId: session.id },
+      where: { userId: session.userId },
       select: { groupName: true },
     });
     if (!membership) {
