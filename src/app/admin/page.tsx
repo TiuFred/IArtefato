@@ -3,6 +3,15 @@ import Link from "next/link";
 
 export const dynamic = "force-dynamic";
 
+type RecentCorrection = {
+  id: string;
+  subject: string;
+  activityDescription: string;
+  score: number;
+  maxScore: number;
+  createdAt: Date;
+};
+
 export default async function AdminPage() {
   const db = getPrisma();
   const [userCount, activityCount, correctionCount, simulationCount] = await Promise.all([
@@ -12,7 +21,7 @@ export default async function AdminPage() {
     db.simulation.count(),
   ]);
 
-  const recentCorrections = await db.correctionCase.findMany({
+  const recentCorrections: RecentCorrection[] = await db.correctionCase.findMany({
     orderBy: { createdAt: "desc" },
     take: 5,
     select: { id: true, subject: true, activityDescription: true, score: true, maxScore: true, createdAt: true },
