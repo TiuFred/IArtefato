@@ -34,7 +34,7 @@ export default function LoginPage() {
     // Verifica se é admin para redirecionar corretamente
     const sessionRes = await fetch("/api/auth/session");
     const session = await sessionRes.json();
-    router.push(session?.user?.isAdmin ? "/admin" : "/dashboard");
+    router.push(session?.user?.isAdmin ? "/admin" : "/base-correcao");
     router.refresh();
   }
 

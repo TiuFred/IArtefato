@@ -33,12 +33,16 @@ export default async function RootLayout({ children }: { children: React.ReactNo
     pathname.startsWith("/aguardando-grupo");
 
   if (!isPublicRoute && !session.isAdmin) {
-    const membership = await db().groupMember.findFirst({
-      where: { userId: session.userId },
-      select: { groupName: true },
-    });
-    if (!membership) {
-      redirect("/aguardando-grupo");
+    try {
+      const membership = await db().groupMember.findFirst({
+        where: { userId: session.userId },
+        select: { groupName: true },
+      });
+      if (!membership) {
+        redirect("/aguardando-grupo");
+      }
+    } catch {
+      // Prevent a membership lookup failure from crashing all student pages.
     }
   }
 
