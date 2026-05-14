@@ -17,7 +17,11 @@ export async function ensureArtefactContextsForAllProjects(activityId: string) {
   });
 
   for (const project of projects) {
-    await ensureSingleArtefactContext(project.id, activity.id, activity.title, activity.description);
+    try {
+      await ensureSingleArtefactContext(project.id, activity.id, activity.title, activity.description);
+    } catch {
+      // Ignore sync failures for one project to avoid breaking the whole request.
+    }
   }
 }
 
@@ -30,7 +34,11 @@ export async function ensureArtefactContextsForProject(projectContextId: string)
   });
 
   for (const activity of activities) {
-    await ensureSingleArtefactContext(projectContextId, activity.id, activity.title, activity.description);
+    try {
+      await ensureSingleArtefactContext(projectContextId, activity.id, activity.title, activity.description);
+    } catch {
+      // Ignore one bad artefact sync and continue exposing the rest of the project.
+    }
   }
 }
 

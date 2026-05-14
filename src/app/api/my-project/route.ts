@@ -37,7 +37,14 @@ export async function GET() {
       return NextResponse.json({ error: "Sem grupo atribuido." }, { status: 403 });
     }
 
-    await ensureArtefactContextsForProject(membership.projectContextId);
+    const projectContextId = membership.projectContextId ?? membership.projectContext?.id;
+    if (projectContextId) {
+      try {
+        await ensureArtefactContextsForProject(projectContextId);
+      } catch {
+        // Do not fail the project load if artefact backfill hits legacy inconsistent data.
+      }
+    }
 
     const refreshedMembership = await db().groupMember.findFirst({
       where: { id: membership.id },
