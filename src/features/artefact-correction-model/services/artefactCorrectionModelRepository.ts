@@ -45,9 +45,15 @@ export async function saveArtefactCorrectionModel(params: {
   return mapArtefactCorrectionModel(row);
 }
 
-export async function getLatestModelByArtefactName(artefactName: string): Promise<ArtefactCorrectionModelView | null> {
+export async function getLatestModelByArtefactName(
+  artefactName: string,
+  projectContextId?: string
+): Promise<ArtefactCorrectionModelView | null> {
   const row: ArtefactCorrectionModelRow | null = await getPrisma().artefactCorrectionModel.findFirst({
-    where: { artefactName: { equals: artefactName, mode: "insensitive" } },
+    where: {
+      artefactName: { equals: artefactName, mode: "insensitive" },
+      ...(projectContextId ? { projectContextId } : {}),
+    },
     orderBy: { generatedAt: "desc" },
   });
   return row ? mapArtefactCorrectionModel(row) : null;

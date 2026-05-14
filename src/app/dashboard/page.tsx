@@ -1,51 +1,107 @@
 import Link from "next/link";
+import { getSession } from "@/lib/session";
+import { getPrisma } from "@/services/database/prisma";
 import { listCorrectionCases } from "@/features/correction-inference/services";
 import { listSimulations } from "@/features/evaluation-simulator/services";
 
 export const dynamic = "force-dynamic";
 
 export default async function Dashboard() {
-  const { cases, simulations, error } = await loadDashboardData();
+  const session = await getSession();
+  if (!session) return null;
+
+  if (session.isAdmin) {
+    const { cases, simulations, error } = await loadAdminDashboardData();
+    const averageScore =
+      cases.length > 0
+        ? cases.reduce((sum, item) => sum + item.score / item.maxScore, 0) / cases.length
+        : 0;
+
+    return (
+      <div>
+        <h1 style={{ fontSize: 24, fontWeight: 700, marginBottom: 24 }}>
+          Dashboard
+        </h1>
+
+        {error && (
+          <div style={{ ...emptyStyle, marginBottom: 24, color: "#fbbf24" }}>
+            Banco ainda nao disponivel no runtime.
+          </div>
+        )}
+
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 12, marginBottom: 32 }}>
+          <Stat label="Correcoes analisadas" value={String(cases.length)} />
+          <Stat label="Simulacoes salvas" value={String(simulations.length)} />
+          <Stat label="Nota media observada" value={`${Math.round(averageScore * 100)}%`} />
+        </div>
+
+        <h2 style={{ fontSize: 16, fontWeight: 600, marginBottom: 12 }}>
+          Correcoes recentes
+        </h2>
+
+        <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+          {cases.length === 0 ? (
+            <div style={emptyStyle}>Nenhuma correcao real salva ainda.</div>
+          ) : (
+            cases.slice(0, 5).map((entry) => (
+              <div key={entry.id} style={rowStyle}>
+                <div>
+                  <div style={{ fontWeight: 500, marginBottom: 2 }}>
+                    {entry.activityDescription.slice(0, 96)}
+                    {entry.activityDescription.length > 96 ? "..." : ""}
+                  </div>
+                  <div style={{ color: "#888", fontSize: 13 }}>
+                    {entry.inference.criteria.map((criterion) => criterion.name).slice(0, 3).join(" · ")}
+                  </div>
+                </div>
+                <span style={{ fontWeight: 600 }}>
+                  {entry.score}/{entry.maxScore}
+                </span>
+              </div>
+            ))
+          )}
+        </div>
+      </div>
+    );
+  }
+
+  const data = await loadStudentDashboardData(session.userId);
   const averageScore =
-    cases.length > 0
-      ? cases.reduce((sum, item) => sum + item.score / item.maxScore, 0) / cases.length
+    data.feedbacks.length > 0
+      ? data.feedbacks.reduce((sum, item) => sum + item.score / item.maxScore, 0) / data.feedbacks.length
       : 0;
 
   return (
     <div>
-      <h1 style={{ fontSize: 24, fontWeight: 700, marginBottom: 24 }}>
-        Dashboard
-      </h1>
-
-      {error && (
-        <div style={{ ...emptyStyle, marginBottom: 24, color: "#fbbf24" }}>
-          Banco ainda não disponível no runtime. Verifique se `.env.local` existe na raiz e rode as migrations.
-        </div>
-      )}
+      <h1 style={{ fontSize: 24, fontWeight: 700, marginBottom: 8 }}>Dashboard do Grupo</h1>
+      <p style={{ color: "#888", marginBottom: 24 }}>
+        {data.projectName} · <span style={{ color: "#4f8ef7" }}>{data.groupName}</span>
+      </p>
 
       <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 12, marginBottom: 32 }}>
-        <Stat label="Correções analisadas" value={String(cases.length)} />
-        <Stat label="Simulações salvas" value={String(simulations.length)} />
-        <Stat label="Nota média observada" value={`${Math.round(averageScore * 100)}%`} />
+        <Stat label="Artefatos disponiveis" value={String(data.artefactCount)} />
+        <Stat label="Correcoes do grupo" value={String(data.feedbacks.length)} />
+        <Stat label="Nota media do grupo" value={`${Math.round(averageScore * 100)}%`} />
       </div>
 
-      <h2 style={{ fontSize: 16, fontWeight: 600, marginBottom: 12 }}>
-        Correções recentes
-      </h2>
+      <div style={{ display: "flex", gap: 12, marginBottom: 28 }}>
+        <Link href="/base-correcao" style={primaryLinkStyle}>Base de correcao</Link>
+        <Link href="/simular" style={secondaryLinkStyle}>Simular avaliacao</Link>
+      </div>
 
+      <h2 style={{ fontSize: 16, fontWeight: 600, marginBottom: 12 }}>Historico recente do grupo</h2>
       <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-        {cases.length === 0 ? (
-          <div style={emptyStyle}>Nenhuma correção real salva ainda.</div>
+        {data.feedbacks.length === 0 ? (
+          <div style={emptyStyle}>Seu grupo ainda nao registrou correcoes.</div>
         ) : (
-          cases.slice(0, 5).map((entry) => (
+          data.feedbacks.slice(0, 8).map((entry) => (
             <div key={entry.id} style={rowStyle}>
               <div>
                 <div style={{ fontWeight: 500, marginBottom: 2 }}>
-                  {entry.activityDescription.slice(0, 96)}
-                  {entry.activityDescription.length > 96 ? "..." : ""}
+                  {entry.artefactName}
                 </div>
                 <div style={{ color: "#888", fontSize: 13 }}>
-                  {entry.inference.criteria.map((criterion) => criterion.name).slice(0, 3).join(" · ")}
+                  {entry.feedback.length > 96 ? `${entry.feedback.slice(0, 96)}...` : entry.feedback}
                 </div>
               </div>
               <span style={{ fontWeight: 600 }}>
@@ -55,17 +111,11 @@ export default async function Dashboard() {
           ))
         )}
       </div>
-
-      <div style={{ marginTop: 24 }}>
-        <Link href="/base-correcao" style={primaryLinkStyle}>
-          + Adicionar correção
-        </Link>
-      </div>
     </div>
   );
 }
 
-async function loadDashboardData() {
+async function loadAdminDashboardData() {
   try {
     const [cases, simulations] = await Promise.all([
       listCorrectionCases(),
@@ -80,6 +130,51 @@ async function loadDashboardData() {
       error: error instanceof Error ? error.message : "Database unavailable",
     };
   }
+}
+
+async function loadStudentDashboardData(userId: string) {
+  const membership = await getPrisma().groupMember.findFirst({
+    where: { userId },
+    include: {
+      projectContext: {
+        include: {
+          artefactContexts: {
+            include: {
+              groupFeedbacks: {
+                where: {},
+                orderBy: { createdAt: "desc" },
+              },
+            },
+            orderBy: { createdAt: "asc" },
+          },
+        },
+      },
+    },
+    orderBy: { createdAt: "asc" },
+  });
+
+  if (!membership) {
+    return { groupName: "Sem grupo", projectName: "Sem projeto", artefactCount: 0, feedbacks: [] as Array<{ id: string; artefactName: string; feedback: string; score: number; maxScore: number }> };
+  }
+
+  const feedbacks = membership.projectContext.artefactContexts.flatMap((artefact) =>
+    artefact.groupFeedbacks
+      .filter((feedback) => feedback.groupName === membership.groupName)
+      .map((feedback) => ({
+        id: feedback.id,
+        artefactName: artefact.artefactName,
+        feedback: feedback.feedback,
+        score: feedback.score,
+        maxScore: feedback.maxScore,
+      }))
+  );
+
+  return {
+    groupName: membership.groupName,
+    projectName: membership.projectContext.name,
+    artefactCount: membership.projectContext.artefactContexts.length,
+    feedbacks,
+  };
 }
 
 function Stat({ label, value }: { label: string; value: string }) {
@@ -123,6 +218,17 @@ const primaryLinkStyle: React.CSSProperties = {
   background: "#4f8ef7",
   color: "#fff",
   borderRadius: 6,
+  fontWeight: 500,
+  fontSize: 14,
+};
+
+const secondaryLinkStyle: React.CSSProperties = {
+  display: "inline-block",
+  padding: "8px 16px",
+  background: "#141414",
+  color: "#e8e8e8",
+  borderRadius: 6,
+  border: "1px solid #333",
   fontWeight: 500,
   fontSize: 14,
 };

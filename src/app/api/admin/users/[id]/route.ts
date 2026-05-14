@@ -4,6 +4,7 @@ import { z } from "zod";
 import { getSession } from "@/lib/session";
 import { getPrisma } from "@/services/database/prisma";
 import { isConfiguredAdminEmail } from "@/features/auth/services/adminEmails";
+import { ensureProjectForGroup } from "@/features/group-member";
 
 const patchSchema = z.object({
   name: z.string().optional(),
@@ -34,47 +35,20 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     }
     if (body.password) data.password = await bcrypt.hash(body.password, 10);
 
-    let defaultProject = await getPrisma().projectContext.findFirst({
-      select: { id: true },
-      orderBy: { createdAt: "asc" },
-    });
-
-    if (!defaultProject && body.groupName !== undefined) {
-      defaultProject = await getPrisma().projectContext.create({
-        data: {
-          name: "Projeto principal",
-          discipline: "",
-          description: "Projeto criado automaticamente para suportar a alocacao global de grupos.",
-          tapText: "",
-        },
-        select: { id: true },
-      });
-    }
-
-    const existingMemberships = await getPrisma().groupMember.findMany({
-      where: { userId: id },
-      select: { projectContextId: true },
-    });
-
     const user = await getPrisma().user.update({
       where: { id },
       data,
       select: { id: true, email: true, name: true, isAdmin: true, createdAt: true },
     });
 
-    if (defaultProject && body.groupName !== undefined) {
+    if (body.groupName !== undefined) {
       if (body.groupName === null) {
         await getPrisma().groupMember.deleteMany({ where: { userId: id } });
-      } else if (existingMemberships.length > 0) {
-        await getPrisma().groupMember.updateMany({
-          where: { userId: id },
-          data: { groupName: body.groupName },
-        });
       } else {
-        await getPrisma().groupMember.upsert({
-          where: { userId_projectContextId: { userId: id, projectContextId: defaultProject.id } },
-          create: { userId: id, projectContextId: defaultProject.id, groupName: body.groupName },
-          update: { groupName: body.groupName },
+        const project = await ensureProjectForGroup(body.groupName);
+        await getPrisma().groupMember.deleteMany({ where: { userId: id } });
+        await getPrisma().groupMember.create({
+          data: { userId: id, projectContextId: project.id, groupName: body.groupName },
         });
       }
     }

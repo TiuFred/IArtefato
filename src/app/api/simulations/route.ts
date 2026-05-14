@@ -1,4 +1,6 @@
 import { NextResponse } from "next/server";
+import { auth } from "@/auth";
+import { getPrisma } from "@/services/database/prisma";
 import {
   createEvaluationSimulation,
   createSimulationSchema,
@@ -19,9 +21,21 @@ export async function GET() {
 
 export async function POST(request: Request) {
   try {
+    const session = await auth();
+    if (!session?.user?.id) {
+      return NextResponse.json({ error: "Nao autenticado." }, { status: 401 });
+    }
+
     const body = await request.json();
     const input = createSimulationSchema.parse(body);
-    const simulation = await createEvaluationSimulation(input);
+    const membership = await getPrisma().groupMember.findFirst({
+      where: { userId: session.user.id },
+      select: { projectContextId: true },
+      orderBy: { createdAt: "asc" },
+    });
+    const simulation = await createEvaluationSimulation(input, {
+      projectContextId: membership?.projectContextId,
+    });
     return NextResponse.json({ data: simulation }, { status: 201 });
   } catch (error) {
     const message =

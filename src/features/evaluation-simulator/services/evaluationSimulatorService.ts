@@ -15,7 +15,8 @@ import { combinePseudoPrompts } from "./pseudoPromptCombiner";
 import { evaluationSimulationSchema } from "./schemas";
 
 export async function simulateEvaluationWithGemini(
-  input: EvaluationSimulationInput
+  input: EvaluationSimulationInput,
+  options?: { projectContextId?: string }
 ): Promise<{
   output: EvaluationSimulationOutput;
   similarCases: SimulationContextCase[];
@@ -35,7 +36,7 @@ export async function simulateEvaluationWithGemini(
       limit: 4,
     }),
     input.artefactName
-      ? getLatestModelByArtefactName(input.artefactName)
+      ? getLatestModelByArtefactName(input.artefactName, options?.projectContextId)
       : Promise.resolve(null),
   ]);
 
