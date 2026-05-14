@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { getSession } from "@/lib/session";
 import { getPrisma } from "@/services/database/prisma";
+import { deleteArtefactContextsFromActivity, syncArtefactContextFromActivity } from "@/features/artefact-context";
 
 async function requireAdmin() {
   const session = await getSession();
@@ -8,7 +9,7 @@ async function requireAdmin() {
 }
 
 export async function PATCH(request: Request, { params }: { params: Promise<{ id: string }> }) {
-  if (!(await requireAdmin())) return NextResponse.json({ error: "Não autorizado." }, { status: 403 });
+  if (!(await requireAdmin())) return NextResponse.json({ error: "Nao autorizado." }, { status: 403 });
   const { id } = await params;
   const body = await request.json();
 
@@ -22,12 +23,17 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     },
   });
 
+  if (body.title !== undefined || body.description !== undefined) {
+    await syncArtefactContextFromActivity(id);
+  }
+
   return NextResponse.json({ data: activity });
 }
 
 export async function DELETE(_: Request, { params }: { params: Promise<{ id: string }> }) {
-  if (!(await requireAdmin())) return NextResponse.json({ error: "Não autorizado." }, { status: 403 });
+  if (!(await requireAdmin())) return NextResponse.json({ error: "Nao autorizado." }, { status: 403 });
   const { id } = await params;
+  await deleteArtefactContextsFromActivity(id);
   await getPrisma().activity.delete({ where: { id } });
   return NextResponse.json({ ok: true });
 }

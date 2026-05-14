@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { getPrisma } from "@/services/database/prisma";
+import { ensureArtefactContextsForProject } from "@/features/artefact-context";
 
 export const runtime = "nodejs";
 
@@ -36,10 +37,33 @@ export async function GET() {
       return NextResponse.json({ error: "Sem grupo atribuido." }, { status: 403 });
     }
 
-    const artefacts = membership.projectContext.artefactContexts.map((artefact: any) => ({
+    await ensureArtefactContextsForProject(membership.projectContextId);
+
+    const refreshedMembership = await db().groupMember.findFirst({
+      where: { id: membership.id },
+      include: {
+        projectContext: {
+          include: {
+            artefactContexts: {
+              include: {
+                groupFeedbacks: { orderBy: { createdAt: "asc" } },
+                correctionModels: { orderBy: { generatedAt: "desc" }, take: 1 },
+              },
+              orderBy: { createdAt: "asc" },
+            },
+          },
+        },
+      },
+    });
+
+    if (!refreshedMembership) {
+      return NextResponse.json({ error: "Sem grupo atribuido." }, { status: 403 });
+    }
+
+    const artefacts = refreshedMembership.projectContext.artefactContexts.map((artefact: any) => ({
       ...artefact,
       groupFeedbacks: artefact.groupFeedbacks.map((feedback: any) => {
-        if (feedback.groupName === membership.groupName) return feedback;
+        if (feedback.groupName === refreshedMembership.groupName) return feedback;
         return {
           ...feedback,
           wadText: "",
@@ -50,8 +74,8 @@ export async function GET() {
 
     return NextResponse.json({
       data: {
-        groupName: membership.groupName,
-        projectContext: membership.projectContext,
+        groupName: refreshedMembership.groupName,
+        projectContext: refreshedMembership.projectContext,
         artefacts,
       },
     });
