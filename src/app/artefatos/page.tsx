@@ -12,6 +12,9 @@ const EMPTY_GROUPS: GroupFeedbackInput[] = Array.from({ length: 5 }, (_, index) 
   feedback: "",
   score: 0,
   maxScore: 10,
+  wadText: "",
+  wadDocuments: [],
+  feedbackDocuments: [],
 }));
 
 type ArtefactFormState = {
@@ -75,6 +78,24 @@ export default function ArtefactModelingPage() {
     if (!files) return;
     const docs = await filesToDocuments(files, documentType);
     setArtefactForm((current) => ({ ...current, documents: [...current.documents, ...docs] }));
+  }
+
+  async function handleGroupFiles(
+    index: number,
+    fieldName: "wadDocuments" | "feedbackDocuments",
+    files: FileList | null,
+    documentTypeForFiles: AcademicDocumentType
+  ) {
+    if (!files) return;
+    const docs = await filesToDocuments(files, documentTypeForFiles);
+    setArtefactForm((current) => ({
+      ...current,
+      groupFeedbacks: current.groupFeedbacks.map((item, itemIndex) =>
+        itemIndex === index
+          ? { ...item, [fieldName]: [...(item[fieldName] ?? []), ...docs] }
+          : item
+      ),
+    }));
   }
 
   async function submitProject() {
@@ -171,7 +192,9 @@ export default function ArtefactModelingPage() {
         <SectionTitle>Correction Behaviour Layer</SectionTitle>
         <div style={{ display: "grid", gridTemplateColumns: "repeat(5, 1fr)", gap: 8, marginBottom: 16 }}>
           {artefactForm.groupFeedbacks.map((feedback, index) => {
-            const valid = feedback.activityDescription.trim() && feedback.feedback.trim() && Number.isFinite(feedback.score);
+            const hasFeedback = feedback.feedback.trim() || (feedback.feedbackDocuments?.length ?? 0) > 0;
+            const hasWad = feedback.wadText?.trim() || (feedback.wadDocuments?.length ?? 0) > 0;
+            const valid = feedback.activityDescription.trim() && hasFeedback && hasWad && Number.isFinite(feedback.score);
             return (
               <div key={index} style={{ ...statusBox, borderColor: valid ? "#166534" : "#3a2720", color: valid ? "#86efac" : "#fbbf24" }}>
                 {feedback.groupName}
@@ -186,11 +209,24 @@ export default function ArtefactModelingPage() {
             <div key={index} style={groupCard}>
               <Input label="Grupo" value={feedback.groupName} onChange={(value) => updateGroup(index, "groupName", value, setArtefactForm)} />
               <Textarea label="Atividade do grupo" rows={2} value={feedback.activityDescription} onChange={(value) => updateGroup(index, "activityDescription", value, setArtefactForm)} />
+              <Textarea label="WAD do grupo" rows={2} value={feedback.wadText ?? ""} onChange={(value) => updateGroup(index, "wadText", value, setArtefactForm)} />
               <Textarea label="Feedback recebido" rows={2} value={feedback.feedback} onChange={(value) => updateGroup(index, "feedback", value, setArtefactForm)} />
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
                 <NumberInput label="Nota" value={feedback.score} onChange={(value) => updateGroup(index, "score", value, setArtefactForm)} />
                 <NumberInput label="Nota máxima" value={feedback.maxScore} onChange={(value) => updateGroup(index, "maxScore", value, setArtefactForm)} />
               </div>
+              <GroupFilePicker
+                label="Arquivos/Fotos do WAD"
+                count={feedback.wadDocuments?.length ?? 0}
+                onFiles={(files, selectedType) => handleGroupFiles(index, "wadDocuments", files, selectedType)}
+                defaultType="group_wad"
+              />
+              <GroupFilePicker
+                label="Arquivos do feedback"
+                count={feedback.feedbackDocuments?.length ?? 0}
+                onFiles={(files, selectedType) => handleGroupFiles(index, "feedbackDocuments", files, selectedType)}
+                defaultType="feedback_file"
+              />
             </div>
           ))}
         </div>
@@ -354,9 +390,48 @@ function DocumentPicker(props: { documentType: AcademicDocumentType; setDocument
         <option value="markdown">Markdown</option>
         <option value="docx">DOCX</option>
         <option value="txt">TXT</option>
+        <option value="artefact_photo">Foto do artefato</option>
       </select>
-      <input type="file" multiple accept=".pdf,.md,.markdown,.docx,.txt,text/plain,application/pdf" onChange={(event) => props.onFiles(event.target.files)} style={input} />
+      <input type="file" multiple accept=".pdf,.md,.markdown,.docx,.txt,.png,.jpg,.jpeg,.webp,text/plain,application/pdf,image/*" onChange={(event) => props.onFiles(event.target.files)} style={input} />
     </div>
+  );
+}
+
+function GroupFilePicker(props: {
+  label: string;
+  count: number;
+  defaultType: "group_wad" | "feedback_file";
+  onFiles: (files: FileList | null, documentType: AcademicDocumentType) => void;
+}) {
+  const [selectedType, setSelectedType] = useState<AcademicDocumentType>(props.defaultType);
+
+  return (
+    <label style={field}>
+      <span>{props.label}</span>
+      <div style={{ display: "grid", gridTemplateColumns: "150px 1fr", gap: 8 }}>
+        <select value={selectedType} onChange={(event) => setSelectedType(event.target.value as AcademicDocumentType)} style={input}>
+          {props.defaultType === "group_wad" ? (
+            <>
+              <option value="group_wad">WAD do grupo</option>
+              <option value="artefact_photo">Foto do artefato</option>
+            </>
+          ) : (
+            <>
+              <option value="feedback_file">Arquivo feedback</option>
+              <option value="feedback_photo">Foto feedback</option>
+            </>
+          )}
+        </select>
+        <input
+          type="file"
+          multiple
+          accept=".xlsx,.xls,.csv,.pdf,.docx,.txt,.md,.png,.jpg,.jpeg,.webp,application/pdf,image/*"
+          onChange={(event) => props.onFiles(event.target.files, selectedType)}
+          style={input}
+        />
+      </div>
+      {props.count > 0 && <small style={{ color: "#64748b" }}>{props.count} arquivo(s) anexado(s)</small>}
+    </label>
   );
 }
 
@@ -371,6 +446,6 @@ const field: React.CSSProperties = { display: "flex", flexDirection: "column", g
 const input: React.CSSProperties = { width: "100%", background: "#0d0d0d", border: "1px solid #262626", borderRadius: 6, padding: "9px 10px", color: "#e8e8e8", fontFamily: "inherit" };
 const primaryBtn: React.CSSProperties = { padding: "9px 14px", border: 0, borderRadius: 6, background: "#4f8ef7", color: "#fff", fontWeight: 700, cursor: "pointer" };
 const statusBox: React.CSSProperties = { border: "1px solid", borderRadius: 8, padding: 10, background: "#0d0d0d", display: "flex", flexDirection: "column", gap: 4, fontSize: 12 };
-const groupCard: React.CSSProperties = { display: "grid", gridTemplateColumns: "120px 1fr 1fr 160px", gap: 8, padding: 10, border: "1px solid #222", borderRadius: 8, background: "#101010" };
+const groupCard: React.CSSProperties = { display: "grid", gridTemplateColumns: "120px repeat(3, 1fr) 160px 220px 220px", gap: 8, padding: 10, border: "1px solid #222", borderRadius: 8, background: "#101010", alignItems: "start" };
 const empty: React.CSSProperties = { padding: 18, background: "#141414", border: "1px solid #222", borderRadius: 8, color: "#64748b" };
 const artefactCard: React.CSSProperties = { display: "flex", justifyContent: "space-between", gap: 16, alignItems: "center", padding: 14, background: "#141414", border: "1px solid #222", borderRadius: 8 };

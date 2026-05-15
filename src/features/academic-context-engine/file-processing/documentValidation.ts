@@ -12,8 +12,12 @@ export const academicDocumentSchema = z.object({
     "markdown",
     "docx",
     "txt",
+    "group_wad",
+    "feedback_file",
+    "artefact_photo",
+    "feedback_photo",
   ]),
   contentBase64: z.string().min(1, "Arquivo vazio ou ilegível."),
 });
 
-export const academicDocumentListSchema = z.array(academicDocumentSchema).max(12);
+export const academicDocumentListSchema = z.array(academicDocumentSchema).max(24);

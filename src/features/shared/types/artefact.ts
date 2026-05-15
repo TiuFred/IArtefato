@@ -6,7 +6,11 @@ export type AcademicDocumentType =
   | "auxiliary_pdf"
   | "markdown"
   | "docx"
-  | "txt";
+  | "txt"
+  | "group_wad"
+  | "feedback_file"
+  | "artefact_photo"
+  | "feedback_photo";
 
 export interface UploadedDocumentInput {
   fileName: string;
@@ -22,6 +26,7 @@ export interface UploadedDocumentView {
   documentType: string;
   textContent: string;
   preview: string;
+  contentBase64?: string;
   createdAt: string;
 }
 
@@ -60,6 +65,8 @@ export interface GroupFeedbackInput {
   maxScore: number;
   wadText?: string;
   wadFileName?: string;
+  wadDocuments?: UploadedDocumentInput[];
+  feedbackDocuments?: UploadedDocumentInput[];
   activityId?: string | null;
 }
 
@@ -68,6 +75,7 @@ export interface GroupFeedbackView extends GroupFeedbackInput {
   artefactContextId: string;
   wadText: string;
   wadFileName: string;
+  uploadedDocuments: UploadedDocumentView[];
   createdAt: string;
 }
 

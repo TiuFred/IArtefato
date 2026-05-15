@@ -5,8 +5,18 @@ import { ensureArtefactContextsForProject } from "@/features/artefact-context";
 
 export const runtime = "nodejs";
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-const db = () => getPrisma() as unknown as Record<string, any>;
+type FeedbackRow = {
+  groupName: string;
+  wadText: string;
+  wadFileName: string;
+  uploadedDocuments?: unknown[];
+  [key: string]: unknown;
+};
+
+type ArtefactRow = {
+  groupFeedbacks: FeedbackRow[];
+  [key: string]: unknown;
+};
 
 export async function GET() {
   try {
@@ -15,14 +25,17 @@ export async function GET() {
       return NextResponse.json({ error: "Nao autenticado." }, { status: 401 });
     }
 
-    const membership = await db().groupMember.findFirst({
+    const membership = await getPrisma().groupMember.findFirst({
       where: { userId: session.user.id },
       include: {
         projectContext: {
           include: {
             artefactContexts: {
               include: {
-                groupFeedbacks: { orderBy: { createdAt: "asc" } },
+                groupFeedbacks: {
+                  orderBy: { createdAt: "asc" },
+                  include: { uploadedDocuments: { orderBy: { createdAt: "asc" } } },
+                },
                 correctionModels: { orderBy: { generatedAt: "desc" }, take: 1 },
               },
               orderBy: { createdAt: "asc" },
@@ -46,14 +59,17 @@ export async function GET() {
       }
     }
 
-    const refreshedMembership = await db().groupMember.findFirst({
+    const refreshedMembership = await getPrisma().groupMember.findFirst({
       where: { id: membership.id },
       include: {
         projectContext: {
           include: {
             artefactContexts: {
               include: {
-                groupFeedbacks: { orderBy: { createdAt: "asc" } },
+                groupFeedbacks: {
+                  orderBy: { createdAt: "asc" },
+                  include: { uploadedDocuments: { orderBy: { createdAt: "asc" } } },
+                },
                 correctionModels: { orderBy: { generatedAt: "desc" }, take: 1 },
               },
               orderBy: { createdAt: "asc" },
@@ -67,14 +83,15 @@ export async function GET() {
       return NextResponse.json({ error: "Sem grupo atribuido." }, { status: 403 });
     }
 
-    const artefacts = refreshedMembership.projectContext.artefactContexts.map((artefact: any) => ({
+    const artefacts = refreshedMembership.projectContext.artefactContexts.map((artefact: ArtefactRow) => ({
       ...artefact,
-      groupFeedbacks: artefact.groupFeedbacks.map((feedback: any) => {
+      groupFeedbacks: artefact.groupFeedbacks.map((feedback: FeedbackRow) => {
         if (feedback.groupName === refreshedMembership.groupName) return feedback;
         return {
           ...feedback,
           wadText: "",
           wadFileName: "",
+          uploadedDocuments: [],
         };
       }),
     }));

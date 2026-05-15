@@ -33,6 +33,7 @@ type ArtefactContextRow = {
     documentType: string;
     textContent: string;
     preview: string;
+    contentBase64?: string;
     createdAt: Date;
   }>;
   groupFeedbacks: GroupFeedbackRow[];
@@ -64,6 +65,16 @@ type GroupFeedbackRow = {
   wadFileName: string;
   activityId: string | null;
   artefactContextId: string;
+  uploadedDocuments: Array<{
+    id: string;
+    fileName: string;
+    mimeType: string;
+    documentType: string;
+    textContent: string;
+    preview: string;
+    contentBase64?: string;
+    createdAt: Date;
+  }>;
   createdAt: Date;
 };
 
@@ -72,12 +83,21 @@ const includeArtefactContext = {
     select: { id: true, name: true, discipline: true, description: true, tapText: true },
   },
   uploadedDocuments: true,
-  groupFeedbacks: { orderBy: { createdAt: "asc" as const } },
+  groupFeedbacks: {
+    orderBy: { createdAt: "asc" as const },
+    include: { uploadedDocuments: { orderBy: { createdAt: "asc" as const } } },
+  },
   correctionModels: { orderBy: { generatedAt: "desc" as const }, take: 1 },
 };
 
 export async function createArtefactContext(input: CreateArtefactContextInput): Promise<ArtefactContextView> {
   const parsedDocuments = await Promise.all(input.documents.map(parseAcademicDocument));
+  const parsedGroupFeedbacks = await Promise.all(
+    input.groupFeedbacks.map(async (feedback) => ({
+      feedback,
+      documents: await parseGroupFeedbackDocuments(feedback),
+    }))
+  );
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const row: ArtefactContextRow = await (getPrisma().artefactContext.create as any)({
     data: {
@@ -98,16 +118,29 @@ export async function createArtefactContext(input: CreateArtefactContextInput): 
           documentType: doc.documentType,
           textContent: doc.textContent,
           preview: doc.preview,
+          contentBase64: doc.contentBase64,
         })),
       },
       groupFeedbacks: {
-        create: input.groupFeedbacks.map((feedback) => ({
+        create: parsedGroupFeedbacks.map(({ feedback, documents }) => ({
           groupName: feedback.groupName,
           activityDescription: feedback.activityDescription,
-          feedback: feedback.feedback,
+          feedback: buildFeedbackText(feedback.feedback, documents),
           score: feedback.score,
           maxScore: feedback.maxScore,
+          wadText: buildWadText(feedback.wadText, documents),
+          wadFileName: feedback.wadFileName ?? firstDocumentName(documents, "group_wad"),
           activityId: feedback.activityId ?? input.activityId ?? null,
+          uploadedDocuments: {
+            create: documents.map((doc) => ({
+              fileName: doc.fileName,
+              mimeType: doc.mimeType,
+              documentType: doc.documentType,
+              textContent: doc.textContent,
+              preview: doc.preview,
+              contentBase64: doc.contentBase64,
+            })),
+          },
         })),
       },
     },
@@ -136,19 +169,31 @@ export async function getArtefactContext(id: string): Promise<ArtefactContextVie
 }
 
 export async function appendGroupFeedback(input: AppendGroupFeedbackInput): Promise<GroupFeedbackView> {
+  const parsedDocuments = await parseGroupFeedbackDocuments(input);
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const row: GroupFeedbackRow = await (getPrisma().groupFeedback.create as any)({
     data: {
       artefactContextId: input.artefactContextId,
       groupName: input.groupName,
       activityDescription: input.activityDescription,
-      feedback: input.feedback,
+      feedback: buildFeedbackText(input.feedback, parsedDocuments),
       score: input.score,
       maxScore: input.maxScore,
-      wadText: input.wadText ?? "",
-      wadFileName: input.wadFileName ?? "",
+      wadText: buildWadText(input.wadText, parsedDocuments),
+      wadFileName: input.wadFileName ?? firstDocumentName(parsedDocuments, "group_wad"),
       activityId: input.activityId ?? null,
+      uploadedDocuments: {
+        create: parsedDocuments.map((doc) => ({
+          fileName: doc.fileName,
+          mimeType: doc.mimeType,
+          documentType: doc.documentType,
+          textContent: doc.textContent,
+          preview: doc.preview,
+          contentBase64: doc.contentBase64,
+        })),
+      },
     },
+    include: { uploadedDocuments: { orderBy: { createdAt: "asc" } } },
   });
   return mapGroupFeedback(row);
 }
@@ -171,6 +216,7 @@ function mapArtefactContext(row: ArtefactContextRow): ArtefactContextView {
     projectContext: row.projectContext,
     uploadedDocuments: row.uploadedDocuments.map((doc) => ({
       ...doc,
+      contentBase64: doc.contentBase64 || undefined,
       createdAt: doc.createdAt.toISOString(),
     })),
     groupFeedbacks: row.groupFeedbacks.map(mapGroupFeedback),
@@ -205,9 +251,40 @@ function mapGroupFeedback(row: GroupFeedbackRow): GroupFeedbackView {
     maxScore: row.maxScore,
     wadText: row.wadText,
     wadFileName: row.wadFileName,
+    uploadedDocuments: row.uploadedDocuments.map((doc) => ({
+      ...doc,
+      contentBase64: doc.contentBase64 || undefined,
+      createdAt: doc.createdAt.toISOString(),
+    })),
     activityId: row.activityId,
     createdAt: row.createdAt.toISOString(),
   };
+}
+
+async function parseGroupFeedbackDocuments(
+  feedback: Pick<AppendGroupFeedbackInput, "wadDocuments" | "feedbackDocuments">
+) {
+  return Promise.all([...(feedback.wadDocuments ?? []), ...(feedback.feedbackDocuments ?? [])].map(parseAcademicDocument));
+}
+
+function buildFeedbackText(feedbackText: string | undefined, documents: Awaited<ReturnType<typeof parseGroupFeedbackDocuments>>) {
+  const documentText = documents
+    .filter((doc) => doc.documentType === "feedback_file" || doc.documentType === "feedback_photo")
+    .map((doc) => `[${doc.documentType}] ${doc.fileName}\n${doc.textContent}`)
+    .join("\n\n");
+  return [feedbackText?.trim(), documentText].filter(Boolean).join("\n\n");
+}
+
+function buildWadText(wadText: string | undefined, documents: Awaited<ReturnType<typeof parseGroupFeedbackDocuments>>) {
+  const documentText = documents
+    .filter((doc) => doc.documentType === "group_wad" || doc.documentType === "artefact_photo")
+    .map((doc) => `[${doc.documentType}] ${doc.fileName}\n${doc.textContent}`)
+    .join("\n\n");
+  return [wadText?.trim(), documentText].filter(Boolean).join("\n\n");
+}
+
+function firstDocumentName(documents: Awaited<ReturnType<typeof parseGroupFeedbackDocuments>>, documentType: string) {
+  return documents.find((doc) => doc.documentType === documentType)?.fileName ?? "";
 }
 
 function asStringArray(value: unknown): string[] {

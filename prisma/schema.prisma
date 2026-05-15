@@ -145,15 +145,19 @@ model UploadedDocument {
   documentType     String
   textContent      String
   preview          String
+  contentBase64    String          @default("")
   projectContextId String?
   artefactContextId String?
+  groupFeedbackId  String?
   createdAt        DateTime        @default(now())
   projectContext   ProjectContext? @relation(fields: [projectContextId], references: [id], onDelete: Cascade)
   artefactContext  ArtefactContext? @relation(fields: [artefactContextId], references: [id], onDelete: Cascade)
+  groupFeedback    GroupFeedback?  @relation(fields: [groupFeedbackId], references: [id], onDelete: Cascade)
 
   @@index([documentType])
   @@index([projectContextId])
   @@index([artefactContextId])
+  @@index([groupFeedbackId])
 }
 
 model GroupFeedback {
@@ -172,6 +176,7 @@ model GroupFeedback {
   artefactContext     ArtefactContext @relation(fields: [artefactContextId], references: [id], onDelete: Cascade)
   activity            Activity?       @relation(fields: [activityId], references: [id], onDelete: SetNull)
   correctionCase      CorrectionCase? @relation(fields: [correctionCaseId], references: [id], onDelete: SetNull)
+  uploadedDocuments   UploadedDocument[]
 
   @@index([artefactContextId])
   @@index([activityId])

@@ -20,6 +20,7 @@ type ProjectContextRow = {
     documentType: string;
     textContent: string;
     preview: string;
+    contentBase64?: string;
     createdAt: Date;
   }>;
 };
@@ -41,6 +42,7 @@ export async function createProjectContext(input: CreateProjectContextInput): Pr
             documentType: doc.documentType,
             textContent: doc.textContent,
             preview: doc.preview,
+            contentBase64: doc.contentBase64,
           })),
       },
     },
@@ -77,6 +79,7 @@ function mapProjectContext(row: ProjectContextRow): ProjectContextView {
     updatedAt: row.updatedAt.toISOString(),
     uploadedDocuments: row.uploadedDocuments.map((doc) => ({
       ...doc,
+      contentBase64: doc.contentBase64 || undefined,
       createdAt: doc.createdAt.toISOString(),
     })),
   };

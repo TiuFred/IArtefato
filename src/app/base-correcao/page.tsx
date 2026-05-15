@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { toast } from "sonner";
+import type { UploadedDocumentInput } from "@/features/shared/types";
 
 interface GroupFeedback {
   id: string;
@@ -12,6 +13,7 @@ interface GroupFeedback {
   maxScore: number;
   wadFileName: string;
   wadText: string;
+  uploadedDocuments: Array<{ id: string; fileName: string; documentType: string }>;
   createdAt: string;
 }
 
@@ -36,7 +38,9 @@ export default function BaseCorrecaoPage() {
   // Form state
   const [wadFile, setWadFile] = useState<File | null>(null);
   const [wadText, setWadText] = useState("");
+  const [wadDocuments, setWadDocuments] = useState<UploadedDocumentInput[]>([]);
   const [feedback, setFeedback] = useState("");
+  const [feedbackDocuments, setFeedbackDocuments] = useState<UploadedDocumentInput[]>([]);
   const [score, setScore] = useState("");
   const [maxScore, setMaxScore] = useState("10");
   const [submitting, setSubmitting] = useState(false);
@@ -56,30 +60,42 @@ export default function BaseCorrecaoPage() {
   }, []);
 
   useEffect(() => {
-    loadProject();
+    void Promise.resolve().then(loadProject);
   }, [loadProject]);
 
   function handleSelectArtefact(artefact: ArtefactContext) {
     setSelectedArtefact(artefact);
     setWadFile(null);
     setWadText("");
+    setWadDocuments([]);
     setFeedback("");
+    setFeedbackDocuments([]);
     setScore("");
     setMaxScore("10");
   }
 
   async function handleWadUpload(file: File) {
     setWadFile(file);
-    const text = await file.text();
-    setWadText(text);
+    setWadDocuments([await fileToDocument(file, "group_wad")]);
+    if (isTextLike(file)) setWadText(await file.text());
+  }
+
+  async function handleFeedbackUpload(files: FileList | null) {
+    if (!files) return;
+    const docs = await Promise.all(Array.from(files).map((file) => fileToDocument(file, "feedback_file")));
+    setFeedbackDocuments((current) => [...current, ...docs]);
   }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!selectedArtefact || !projectData) return;
 
-    if (!feedback.trim()) {
-      toast.error("Cole o feedback recebido.");
+    if (!feedback.trim() && feedbackDocuments.length === 0) {
+      toast.error("Cole o feedback recebido ou anexe o arquivo da correção.");
+      return;
+    }
+    if (!wadText.trim() && wadDocuments.length === 0) {
+      toast.error("Anexe ou cole o WAD entregue pelo grupo.");
       return;
     }
     if (!score) {
@@ -100,6 +116,8 @@ export default function BaseCorrecaoPage() {
           maxScore: parseFloat(maxScore),
           wadText: wadText,
           wadFileName: wadFile?.name ?? "",
+          wadDocuments,
+          feedbackDocuments,
         }),
       });
 
@@ -112,6 +130,8 @@ export default function BaseCorrecaoPage() {
       setFeedback("");
       setWadFile(null);
       setWadText("");
+      setWadDocuments([]);
+      setFeedbackDocuments([]);
       setScore("");
       await loadProject();
     } catch (err) {
@@ -123,10 +143,11 @@ export default function BaseCorrecaoPage() {
 
   // Refresh selected artefact data after reload
   useEffect(() => {
-    if (projectData && selectedArtefact) {
+    void Promise.resolve().then(() => {
+      if (!projectData || !selectedArtefact) return;
       const updated = projectData.artefacts.find((a) => a.id === selectedArtefact.id);
       if (updated) setSelectedArtefact(updated);
-    }
+    });
   }, [projectData]); // eslint-disable-line react-hooks/exhaustive-deps
 
   if (loading) {
@@ -233,7 +254,7 @@ export default function BaseCorrecaoPage() {
 
                 {/* WAD upload */}
                 <div style={{ marginBottom: 18 }}>
-                  <label style={labelStyle}>WAD entregue (.md ou .txt)</label>
+                  <label style={labelStyle}>WAD entregue, planilha ou foto *</label>
                   <label
                     htmlFor="wad-upload"
                     style={{
@@ -264,7 +285,7 @@ export default function BaseCorrecaoPage() {
                   <input
                     id="wad-upload"
                     type="file"
-                    accept=".md,.txt"
+                    accept=".md,.txt,.docx,.pdf,.xlsx,.xls,.csv,.png,.jpg,.jpeg,.webp,application/pdf,image/*"
                     style={{ display: "none" }}
                     onChange={(e) => {
                       const file = e.target.files?.[0];
@@ -284,15 +305,28 @@ export default function BaseCorrecaoPage() {
 
                 {/* Feedback textarea */}
                 <div style={{ marginBottom: 18 }}>
-                  <label style={labelStyle}>Feedback recebido *</label>
+                  <label style={labelStyle}>Feedback recebido</label>
                   <textarea
                     value={feedback}
                     onChange={(e) => setFeedback(e.target.value)}
                     placeholder="Cole aqui o feedback que você recebeu do avaliador..."
                     rows={6}
                     style={inputStyle}
-                    required
                   />
+                  <div style={{ marginTop: 8 }}>
+                    <input
+                      type="file"
+                      multiple
+                      accept=".xlsx,.xls,.csv,.docx,.pdf,.txt,.md,.png,.jpg,.jpeg,.webp,application/pdf,image/*"
+                      onChange={(event) => handleFeedbackUpload(event.target.files)}
+                      style={inputStyle}
+                    />
+                    {feedbackDocuments.length > 0 && (
+                      <p style={{ fontSize: 12, color: "#64748b", marginTop: 6 }}>
+                        {feedbackDocuments.length} arquivo(s) de feedback anexado(s)
+                      </p>
+                    )}
+                  </div>
                 </div>
 
                 {/* Score inputs */}
@@ -430,3 +464,26 @@ const inputStyle: React.CSSProperties = {
   resize: "vertical" as const,
   boxSizing: "border-box",
 };
+
+async function fileToDocument(file: File, documentType: "group_wad" | "feedback_file"): Promise<UploadedDocumentInput> {
+  return {
+    fileName: file.name,
+    mimeType: file.type || "application/octet-stream",
+    documentType,
+    contentBase64: await fileToBase64(file),
+  };
+}
+
+function fileToBase64(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onerror = () => reject(new Error("Arquivo invalido."));
+    reader.onload = () => resolve(String(reader.result).split(",")[1] ?? "");
+    reader.readAsDataURL(file);
+  });
+}
+
+function isTextLike(file: File) {
+  const name = file.name.toLowerCase();
+  return file.type.startsWith("text/") || name.endsWith(".md") || name.endsWith(".txt") || name.endsWith(".csv");
+}

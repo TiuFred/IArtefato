@@ -8,6 +8,7 @@ export interface ParsedAcademicDocument {
   documentType: string;
   textContent: string;
   preview: string;
+  contentBase64: string;
 }
 
 export async function parseAcademicDocument(
@@ -17,11 +18,16 @@ export async function parseAcademicDocument(
   const fileName = input.fileName.toLowerCase();
   const mimeType = input.mimeType.toLowerCase();
 
+  const isImage = mimeType.startsWith("image/") || /\.(png|jpe?g|webp|gif)$/i.test(fileName);
   const textContent = normalizeText(
-    mimeType.includes("pdf") || fileName.endsWith(".pdf")
+    isImage
+      ? buildImageDescription(input.fileName, input.mimeType, buffer.byteLength)
+      : mimeType.includes("pdf") || fileName.endsWith(".pdf")
       ? await parsePdf(buffer)
       : mimeType.includes("word") || fileName.endsWith(".docx")
       ? await parseDocx(buffer)
+      : mimeType.includes("spreadsheet") || /\.(xlsx|xls|csv)$/i.test(fileName)
+      ? await parseSpreadsheet(buffer, fileName)
       : parseText(buffer)
   );
 
@@ -31,6 +37,7 @@ export async function parseAcademicDocument(
     documentType: input.documentType,
     textContent,
     preview: buildPreview(textContent),
+    contentBase64: isImage ? input.contentBase64 : "",
   };
 }
 
@@ -59,6 +66,20 @@ async function parseDocx(buffer: Buffer): Promise<string> {
   }
 }
 
+async function parseSpreadsheet(buffer: Buffer, fileName: string): Promise<string> {
+  try {
+    const xlsx = await import("xlsx");
+    const workbook = xlsx.read(buffer, { type: "buffer" });
+    return workbook.SheetNames.map((sheetName) => {
+      const sheet = workbook.Sheets[sheetName];
+      const rows = xlsx.utils.sheet_to_json<Record<string, unknown>>(sheet, { defval: "" });
+      return [`Planilha: ${sheetName}`, JSON.stringify(rows, null, 2)].join("\n");
+    }).join("\n\n");
+  } catch {
+    return fileName.endsWith(".csv") ? parseText(buffer) : "";
+  }
+}
+
 function parseText(buffer: Buffer): string {
   return buffer.toString("utf8");
 }
@@ -71,11 +92,21 @@ function buildPreview(value: string): string {
   return value.slice(0, 600);
 }
 
+function buildImageDescription(fileName: string, mimeType: string, bytes: number): string {
+  return `Imagem anexada para analise visual: ${fileName} (${mimeType || "image/*"}, ${bytes} bytes). Use este anexo como evidencia visual do artefato quando o modelo multimodal estiver disponivel.`;
+}
+
 function inferMimeType(fileName: string): string {
   if (fileName.endsWith(".pdf")) return "application/pdf";
   if (fileName.endsWith(".docx")) {
     return "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
   }
+  if (fileName.endsWith(".xlsx")) {
+    return "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
+  }
+  if (fileName.endsWith(".xls")) return "application/vnd.ms-excel";
+  if (fileName.endsWith(".csv")) return "text/csv";
+  if (/\.(png|jpe?g|webp|gif)$/i.test(fileName)) return "image/*";
   if (fileName.endsWith(".md")) return "text/markdown";
   return "text/plain";
 }

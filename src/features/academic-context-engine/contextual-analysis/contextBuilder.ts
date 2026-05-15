@@ -26,10 +26,15 @@ export function buildArtefactSemanticContext(params: {
     `DOCUMENTOS:\n${params.documents.map((doc) => `[${doc.documentType}] ${doc.fileName}\n${doc.preview}`).join("\n\n")}`,
     `FEEDBACKS COLETIVOS (${params.groupFeedbacks.length} grupos):\n${params.groupFeedbacks
       .map((item) => {
+        const evidenceDocuments = item.uploadedDocuments.length
+          ? `ANEXOS DO GRUPO:\n${item.uploadedDocuments
+              .map((doc) => `[${doc.documentType}] ${doc.fileName}\nPreview: ${doc.preview}`)
+              .join("\n\n")}`
+          : "ANEXOS DO GRUPO: nenhum";
         const wadSection = item.wadText
           ? `WAD ENTREGUE PELO GRUPO:\n${item.wadText.substring(0, 4000)}${item.wadText.length > 4000 ? "\n[... truncado ...]" : ""}`
           : "WAD: nao submetido";
-        return `--- ${item.groupName} (${item.score}/${item.maxScore}) ---\nAtividade: ${item.activityDescription}\n${wadSection}\nFeedback recebido: ${item.feedback}`;
+        return `--- ${item.groupName} (${item.score}/${item.maxScore}) ---\nAtividade: ${item.activityDescription}\n${wadSection}\n${evidenceDocuments}\nFeedback recebido: ${item.feedback}`;
       })
       .join("\n\n")}`,
   ].join("\n\n---\n\n");

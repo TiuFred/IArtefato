@@ -8,7 +8,8 @@ export function validateCollectiveFeedbacks(feedbacks: GroupFeedbackInput[]) {
     (item) =>
       item.groupName.trim().length > 0 &&
       item.activityDescription.trim().length > 0 &&
-      item.feedback.trim().length > 0 &&
+      hasFeedbackEvidence(item) &&
+      hasWadEvidence(item) &&
       Number.isFinite(item.score) &&
       Number.isFinite(item.maxScore)
   ).length;
@@ -19,7 +20,8 @@ export function validateCollectiveFeedbacks(feedbacks: GroupFeedbackInput[]) {
 
   feedbacks.forEach((item, index) => {
     if (!item.activityDescription.trim()) issues.push(`Grupo ${index + 1}: atividade obrigatoria.`);
-    if (!item.feedback.trim()) issues.push(`Grupo ${index + 1}: feedback obrigatorio.`);
+    if (!hasFeedbackEvidence(item)) issues.push(`Grupo ${index + 1}: feedback em texto ou arquivo obrigatorio.`);
+    if (!hasWadEvidence(item)) issues.push(`Grupo ${index + 1}: WAD em texto ou arquivo obrigatorio.`);
     if (!Number.isFinite(item.score)) issues.push(`Grupo ${index + 1}: nota obrigatoria.`);
   });
 
@@ -30,4 +32,12 @@ export function validateCollectiveFeedbacks(feedbacks: GroupFeedbackInput[]) {
     canGenerate: validFeedbacks >= MINIMUM_GROUP_FEEDBACKS && issues.length === 0,
     issues,
   };
+}
+
+function hasFeedbackEvidence(item: GroupFeedbackInput) {
+  return item.feedback.trim().length > 0 || (item.feedbackDocuments?.length ?? 0) > 0;
+}
+
+function hasWadEvidence(item: GroupFeedbackInput) {
+  return (item.wadText?.trim().length ?? 0) > 0 || (item.wadDocuments?.length ?? 0) > 0;
 }

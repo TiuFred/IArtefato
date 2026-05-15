@@ -13,12 +13,33 @@ const listFromText = z.preprocess((value) => {
 export const groupFeedbackSchema = z.object({
   groupName: z.string().trim().min(1, "Informe o grupo."),
   activityDescription: z.string().trim().min(10, "Atividade obrigatoria."),
-  feedback: z.string().trim().min(10, "Feedback obrigatorio."),
+  feedback: z.string().trim().optional().default(""),
   score: z.coerce.number({ error: "Nota obrigatoria." }).min(0),
   maxScore: z.coerce.number().min(1).default(10),
   wadText: z.string().optional().default(""),
   wadFileName: z.string().optional().default(""),
+  wadDocuments: academicDocumentListSchema.optional().default([]),
+  feedbackDocuments: academicDocumentListSchema.optional().default([]),
   activityId: z.string().nullable().optional(),
+}).superRefine((value, ctx) => {
+  const hasFeedback = value.feedback.trim().length >= 10 || value.feedbackDocuments.length > 0;
+  const hasWad = value.wadText.trim().length >= 10 || value.wadDocuments.length > 0;
+
+  if (!hasFeedback) {
+    ctx.addIssue({
+      code: "custom",
+      path: ["feedback"],
+      message: "Informe o feedback em texto ou anexe o arquivo da correcao.",
+    });
+  }
+
+  if (!hasWad) {
+    ctx.addIssue({
+      code: "custom",
+      path: ["wadText"],
+      message: "Informe o WAD do grupo em texto ou por arquivo.",
+    });
+  }
 });
 
 export const createArtefactContextSchema = z.object({

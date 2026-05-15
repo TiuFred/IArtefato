@@ -47,7 +47,7 @@ export default function Simular() {
   }, []);
 
   useEffect(() => {
-    loadProject();
+    void Promise.resolve().then(loadProject);
   }, [loadProject]);
 
   async function handleWadUpload(file: File) {

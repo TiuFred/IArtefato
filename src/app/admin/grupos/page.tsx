@@ -63,8 +63,13 @@ export default function AdminGruposPage() {
     setMembers(payload.data ?? []);
   }, [selectedProject]);
 
-  useEffect(() => { loadData(); }, [loadData]);
-  useEffect(() => { loadMembers(); }, [loadMembers]);
+  useEffect(() => {
+    void Promise.resolve().then(loadData);
+  }, [loadData]);
+
+  useEffect(() => {
+    void Promise.resolve().then(loadMembers);
+  }, [loadMembers]);
 
   async function handleAssign() {
     if (!assignForm.userId || !selectedProject) {
