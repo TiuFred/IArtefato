@@ -17,6 +17,14 @@ export async function ensureMainProject(groupName?: string): Promise<{ id: strin
   });
   if (existing) return existing;
 
+  if (process.env.NODE_ENV === "production") {
+    const fallback = await prisma.projectContext.findFirst({
+      select: { id: true, name: true },
+      orderBy: { createdAt: "asc" },
+    });
+    if (fallback) return fallback;
+  }
+
   const template = await prisma.projectContext.findFirst({
     where: {
       name: { notIn: ["Projeto G01", "Projeto G02", "Projeto G03", "Projeto G04", "Projeto G05"] },

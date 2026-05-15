@@ -45,6 +45,7 @@ export default function AdminGruposPage() {
       ]);
       setUsers(usersPayload.data ?? []);
       setMembers(membersPayload.data ?? []);
+      if (membersPayload.error) toast.error(membersPayload.error);
     } finally {
       setIsLoading(false);
     }
@@ -54,6 +55,7 @@ export default function AdminGruposPage() {
     const res = await fetch("/api/group-members");
     const payload = await res.json();
     setMembers(payload.data ?? []);
+    if (payload.error) toast.error(payload.error);
   }, []);
 
   useEffect(() => {

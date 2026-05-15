@@ -20,8 +20,9 @@ export async function GET() {
 
     const members = await listGroupMembers();
     return NextResponse.json({ data: members });
-  } catch {
-    return NextResponse.json({ error: "Nao foi possivel carregar membros." }, { status: 500 });
+  } catch (error) {
+    console.error("[group-members:get]", error);
+    return NextResponse.json({ data: [], error: "Nao foi possivel carregar membros." }, { status: 200 });
   }
 }
 
