@@ -181,10 +181,17 @@ export default function BaseCorrecaoPage() {
       return;
     }
 
-    const wadText = wadFiles
+    // Build wadText: use text content from text-like files; for binary-only, use filename placeholders
+    const textParts = wadFiles
       .filter((u) => u.text !== undefined)
-      .map((u) => u.text!)
-      .join("\n\n---\n\n");
+      .map((u) => u.text!);
+    const binaryNames = wadFiles
+      .filter((u) => u.text === undefined)
+      .map((u) => `[Arquivo binário: ${u.file.name}]`);
+    const wadText = [...textParts, ...binaryNames].join("\n\n---\n\n");
+
+    // wadFileName lists all attached file names
+    const wadFileName = wadFiles.map((u) => u.file.name).join(", ");
 
     setSubmitting(true);
     try {
@@ -198,9 +205,9 @@ export default function BaseCorrecaoPage() {
           score: parseFloat(score),
           maxScore: parseFloat(maxScore),
           wadText,
-          wadFileName: wadFiles[0]?.file.name ?? "",
-          wadDocuments: wadFiles.map((u) => u.doc),
-          feedbackDocuments: feedbackFiles.map((u) => u.doc),
+          wadFileName,
+          // NOTE: base64 documents are intentionally omitted to avoid 413 payloads.
+          // The text content above is what the AI uses for inference.
         }),
       });
 

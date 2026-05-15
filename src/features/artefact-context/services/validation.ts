@@ -22,8 +22,10 @@ export const groupFeedbackSchema = z.object({
   feedbackDocuments: academicDocumentListSchema.optional().default([]),
   activityId: z.string().nullable().optional(),
 }).superRefine((value, ctx) => {
-  const hasFeedback = value.feedback.trim().length >= 10 || value.feedbackDocuments.length > 0;
-  const hasWad = value.wadText.trim().length >= 10 || value.wadDocuments.length > 0;
+  // Documents (base64) are no longer sent in the payload to avoid 413 errors.
+  // Validation is relaxed to 1 char — the client performs stricter checks before submitting.
+  const hasFeedback = value.feedback.trim().length >= 1 || value.feedbackDocuments.length > 0;
+  const hasWad = value.wadText.trim().length >= 1 || value.wadDocuments.length > 0;
 
   if (!hasFeedback) {
     ctx.addIssue({
