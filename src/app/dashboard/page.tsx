@@ -1,8 +1,6 @@
 import Link from "next/link";
 import { getSession } from "@/lib/session";
 import { getPrisma } from "@/services/database/prisma";
-import { listCorrectionCases } from "@/features/correction-inference/services";
-import { listSimulations } from "@/features/evaluation-simulator/services";
 
 export const dynamic = "force-dynamic";
 
@@ -11,52 +9,41 @@ export default async function Dashboard() {
   if (!session) return null;
 
   if (session.isAdmin) {
-    const { cases, simulations, error } = await loadAdminDashboardData();
-    const averageScore =
-      cases.length > 0
-        ? cases.reduce((sum, item) => sum + item.score / item.maxScore, 0) / cases.length
-        : 0;
+    const stats = await loadAdminDashboardData();
 
     return (
       <div>
-        <h1 style={{ fontSize: 24, fontWeight: 700, marginBottom: 24 }}>
-          Dashboard
-        </h1>
+        <h1 style={{ fontSize: 24, fontWeight: 700, marginBottom: 8 }}>Dashboard</h1>
+        <p style={{ color: "#888", fontSize: 14, marginBottom: 28 }}>Visão geral da plataforma</p>
 
-        {error && (
-          <div style={{ ...emptyStyle, marginBottom: 24, color: "#fbbf24" }}>
-            Banco ainda nao disponivel no runtime.
-          </div>
-        )}
-
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 12, marginBottom: 32 }}>
-          <Stat label="Correcoes analisadas" value={String(cases.length)} />
-          <Stat label="Simulacoes salvas" value={String(simulations.length)} />
-          <Stat label="Nota media observada" value={`${Math.round(averageScore * 100)}%`} />
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 12, marginBottom: 32 }}>
+          <Stat label="Correções registradas" value={String(stats.totalFeedbacks)} />
+          <Stat label="Grupos ativos" value={String(stats.totalGroups)} />
+          <Stat label="Modelos gerados" value={String(stats.totalModels)} />
+          <Stat label="Usuários cadastrados" value={String(stats.totalUsers)} />
         </div>
 
-        <h2 style={{ fontSize: 16, fontWeight: 600, marginBottom: 12 }}>
-          Correcoes recentes
-        </h2>
+        <div style={{ display: "flex", gap: 12, marginBottom: 28 }}>
+          <Link href="/admin/grupos" style={primaryLinkStyle}>Gerenciar grupos</Link>
+          <Link href="/padroes" style={secondaryLinkStyle}>Ver padrões inferidos</Link>
+        </div>
 
+        <h2 style={{ fontSize: 16, fontWeight: 600, marginBottom: 12 }}>Correções recentes</h2>
         <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-          {cases.length === 0 ? (
-            <div style={emptyStyle}>Nenhuma correcao real salva ainda.</div>
+          {stats.recentFeedbacks.length === 0 ? (
+            <div style={emptyStyle}>Nenhuma correção registrada ainda.</div>
           ) : (
-            cases.slice(0, 5).map((entry) => (
+            stats.recentFeedbacks.map((entry) => (
               <div key={entry.id} style={rowStyle}>
                 <div>
                   <div style={{ fontWeight: 500, marginBottom: 2 }}>
-                    {entry.activityDescription.slice(0, 96)}
-                    {entry.activityDescription.length > 96 ? "..." : ""}
+                    {entry.artefactName} · <span style={{ color: "#4f8ef7" }}>{entry.groupName}</span>
                   </div>
                   <div style={{ color: "#888", fontSize: 13 }}>
-                    {entry.inference.criteria.map((criterion) => criterion.name).slice(0, 3).join(" · ")}
+                    {entry.feedback ? (entry.feedback.length > 80 ? entry.feedback.slice(0, 80) + "..." : entry.feedback) : "Sem texto de feedback"}
                   </div>
                 </div>
-                <span style={{ fontWeight: 600 }}>
-                  {entry.score}/{entry.maxScore}
-                </span>
+                <span style={{ fontWeight: 600 }}>{entry.score}/{entry.maxScore}</span>
               </div>
             ))
           )}
@@ -117,17 +104,55 @@ export default async function Dashboard() {
 
 async function loadAdminDashboardData() {
   try {
-    const [cases, simulations] = await Promise.all([
-      listCorrectionCases(),
-      listSimulations(),
-    ]);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const db = getPrisma() as unknown as Record<string, any>;
 
-    return { cases, simulations, error: null };
-  } catch (error) {
+    const [totalFeedbacks, totalModels, totalUsers, recentFeedbackRows, groupNames] =
+      await Promise.all([
+        db.groupFeedback.count(),
+        db.artefactCorrectionModel.count(),
+        db.user.count(),
+        db.groupFeedback.findMany({
+          take: 8,
+          orderBy: { createdAt: "desc" },
+          include: { artefactContext: { select: { artefactName: true } } },
+        }),
+        db.groupMember.findMany({
+          select: { groupName: true },
+          distinct: ["groupName"],
+        }),
+      ]);
+
+    const recentFeedbacks = (recentFeedbackRows as Array<{
+      id: string;
+      groupName: string;
+      feedback: string;
+      score: number;
+      maxScore: number;
+      artefactContext: { artefactName: string };
+    }>).map((row) => ({
+      id: row.id,
+      groupName: row.groupName,
+      feedback: row.feedback,
+      score: row.score,
+      maxScore: row.maxScore,
+      artefactName: row.artefactContext.artefactName,
+    }));
+
     return {
-      cases: [],
-      simulations: [],
-      error: error instanceof Error ? error.message : "Database unavailable",
+      totalFeedbacks: totalFeedbacks as number,
+      totalModels: totalModels as number,
+      totalUsers: totalUsers as number,
+      totalGroups: (groupNames as unknown[]).length,
+      recentFeedbacks,
+    };
+  } catch {
+    return {
+      totalFeedbacks: 0,
+      totalModels: 0,
+      totalUsers: 0,
+      totalGroups: 0,
+      recentFeedbacks: [] as Array<{ id: string; groupName: string; feedback: string; score: number; maxScore: number; artefactName: string }>,
     };
   }
 }
