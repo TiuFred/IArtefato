@@ -473,11 +473,27 @@ export default function ArtefactDetailPage() {
               <span style={tag(confidenceColor(model.confidence))}>
                 Confiança: {model.confidence}%
               </span>
+              {model.isOutdated && (
+                <span style={tag("#f59e0b")}>
+                  Desatualizado
+                </span>
+              )}
               <span style={{ fontSize: 11, color: "#475569" }}>
                 {model.groupFeedbackCount} grupos · {new Date(model.generatedAt).toLocaleDateString("pt-BR")}
               </span>
             </div>
           </div>
+
+          {model.isOutdated && (
+            <div style={{
+              marginBottom: 18, padding: "10px 12px", borderRadius: 8,
+              border: "1px solid #f59e0b44", background: "#451a0322",
+              color: "#fbbf24", fontSize: 13, lineHeight: 1.5,
+            }}>
+              Este modelo ainda pode ser usado na simulação, mas há novos dados privados de grupos para incorporar.
+              {model.outdatedReason ? ` ${model.outdatedReason}` : ""}
+            </div>
+          )}
 
           {/* Pseudo-prompt */}
           <div style={{ marginBottom: 20 }}>

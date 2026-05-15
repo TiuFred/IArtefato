@@ -117,5 +117,8 @@ export interface ArtefactCorrectionModelView extends ArtefactCorrectionModelOutp
   projectContextId: string;
   artefactContextId: string;
   groupFeedbackCount: number;
+  isOutdated: boolean;
+  outdatedReason?: string;
+  lastEvidenceAt?: string;
   generatedAt: string;
 }

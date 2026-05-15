@@ -257,8 +257,8 @@ export default function ArtefactModelingPage() {
                       {artefact.projectContext.name} · {status?.validFeedbacks ?? 0}/5 grupos válidos · {artefact.uploadedDocuments.length} doc(s)
                     </div>
                     {artefact.latestModel && (
-                      <div style={{ color: "#6ee7b7", fontSize: 12, marginTop: 6 }}>
-                        ✓ Modelo gerado · {artefact.latestModel.confidence}% confiança · rigor {artefact.latestModel.rigorLevel}
+                      <div style={{ color: artefact.latestModel.isOutdated ? "#fbbf24" : "#6ee7b7", fontSize: 12, marginTop: 6 }}>
+                        {artefact.latestModel.isOutdated ? "Modelo desatualizado" : "Modelo gerado"} · {artefact.latestModel.confidence}% confiança · rigor {artefact.latestModel.rigorLevel}
                       </div>
                     )}
                     {!artefact.latestModel && (status?.missingFeedbacks ?? 0) > 0 && (
@@ -278,7 +278,7 @@ export default function ArtefactModelingPage() {
                       }}
                       title={status?.issues.join("\n")}
                     >
-                      {status?.canGenerate ? "Gerar modelo" : `${status?.validFeedbacks ?? 0}/5`}
+                      {status?.canGenerate ? (artefact.latestModel?.isOutdated ? "Atualizar modelo" : "Gerar modelo") : `${status?.validFeedbacks ?? 0}/5`}
                     </button>
                     <button
                       onClick={() => router.push(`/artefatos/${artefact.id}`)}

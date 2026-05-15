@@ -82,6 +82,7 @@ export function mapArtefactCorrectionModel(row: ArtefactCorrectionModelRow): Art
     rigorLevel: row.rigorLevel === "low" || row.rigorLevel === "medium" || row.rigorLevel === "high" ? row.rigorLevel : "medium",
     confidence: row.confidence,
     groupFeedbackCount: row.groupFeedbackCount,
+    isOutdated: false,
     generatedAt: row.generatedAt.toISOString(),
   };
 }

@@ -234,6 +234,7 @@ function mapArtefactContext(row: ArtefactContextRow): ArtefactContextView {
           rigorLevel: asRigorLevel(row.correctionModels[0].rigorLevel),
           confidence: row.correctionModels[0].confidence,
           groupFeedbackCount: row.correctionModels[0].groupFeedbackCount,
+          ...getModelFreshness(row.correctionModels[0], row.groupFeedbacks),
           generatedAt: row.correctionModels[0].generatedAt.toISOString(),
         }
       : null,
@@ -303,4 +304,26 @@ function asCorrectionStyle(value: unknown) {
 
 function asRigorLevel(value: string): "low" | "medium" | "high" {
   return value === "low" || value === "medium" || value === "high" ? value : "medium";
+}
+
+function getModelFreshness(
+  model: Pick<ArtefactContextRow["correctionModels"][number], "generatedAt" | "groupFeedbackCount">,
+  feedbacks: GroupFeedbackRow[]
+) {
+  const lastEvidenceAt = feedbacks.reduce<Date | null>((latest, feedback) => {
+    if (!latest || feedback.createdAt > latest) return feedback.createdAt;
+    return latest;
+  }, null);
+  const hasNewFeedback = Boolean(lastEvidenceAt && lastEvidenceAt > model.generatedAt);
+  const hasFeedbackCountChanged = feedbacks.length !== model.groupFeedbackCount;
+  const reasons = [
+    hasNewFeedback ? "Novos WADs, feedbacks, notas ou anexos foram enviados depois da geração do modelo." : "",
+    hasFeedbackCountChanged ? `O modelo foi gerado com ${model.groupFeedbackCount} feedback(s), mas agora existem ${feedbacks.length}.` : "",
+  ].filter(Boolean);
+
+  return {
+    isOutdated: reasons.length > 0,
+    outdatedReason: reasons.join(" "),
+    lastEvidenceAt: lastEvidenceAt?.toISOString(),
+  };
 }
