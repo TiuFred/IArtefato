@@ -20,6 +20,30 @@ interface ProjectData {
   artefacts: ArtefactContext[];
 }
 
+interface AttachedFile {
+  file: File;
+  text?: string; // defined for text-like files
+}
+
+// ── helpers ───────────────────────────────────────────────────────────────────
+
+function isTextLike(file: File) {
+  const name = file.name.toLowerCase();
+  return (
+    file.type.startsWith("text/") ||
+    name.endsWith(".md") ||
+    name.endsWith(".txt") ||
+    name.endsWith(".csv")
+  );
+}
+
+async function readAttached(file: File): Promise<AttachedFile> {
+  const text = isTextLike(file) ? await file.text() : undefined;
+  return { file, text };
+}
+
+// ── component ─────────────────────────────────────────────────────────────────
+
 export default function Simular() {
   const [step, setStep] = useState<Step>("input");
   const { simulate, result, error, reset } = useEvaluationSimulator();
@@ -29,15 +53,14 @@ export default function Simular() {
 
   const [selectedArtefact, setSelectedArtefact] = useState<ArtefactContext | null>(null);
   const [subject, setSubject] = useState("");
-  const [wadFile, setWadFile] = useState<File | null>(null);
-  const [wadText, setWadText] = useState("");
+  const [wadFiles, setWadFiles] = useState<AttachedFile[]>([]);
 
   const loadProject = useCallback(async () => {
     setProjectLoading(true);
     try {
       const res = await fetch("/api/my-project");
       if (!res.ok) throw new Error();
-      const json = await res.json();
+      const json = await res.json() as { data: ProjectData };
       setProjectData(json.data);
     } catch {
       toast.error("Não foi possível carregar seu projeto.");
@@ -47,19 +70,35 @@ export default function Simular() {
   }, []);
 
   useEffect(() => {
-    void Promise.resolve().then(loadProject);
+    void loadProject();
   }, [loadProject]);
 
-  async function handleWadUpload(file: File) {
-    setWadFile(file);
-    const text = await file.text();
-    setWadText(text);
+  async function handleWadAdd(fileList: FileList | null) {
+    if (!fileList) return;
+    const incoming = await Promise.all(Array.from(fileList).map(readAttached));
+    setWadFiles((prev) => {
+      const existing = new Set(prev.map((a) => a.file.name));
+      return [...prev, ...incoming.filter((a) => !existing.has(a.file.name))];
+    });
   }
+
+  function removeWadFile(fileName: string) {
+    setWadFiles((prev) => prev.filter((a) => a.file.name !== fileName));
+  }
+
+  // Build studentResponse: concatenate all text content (non-text files listed by name)
+  const studentResponse = wadFiles
+    .map((a) =>
+      a.text !== undefined
+        ? a.text
+        : `[Arquivo binário: ${a.file.name} — conteúdo não extraível automaticamente]`
+    )
+    .join("\n\n---\n\n");
 
   const isValid =
     subject.length > 0 &&
     selectedArtefact !== null &&
-    wadText.length > 10;
+    wadFiles.length > 0;
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -69,7 +108,7 @@ export default function Simular() {
       subject,
       artefactName: selectedArtefact.artefactName,
       activityDescription: selectedArtefact.description,
-      studentResponse: wadText,
+      studentResponse,
       maxScore: 10,
     });
     setStep(nextResult ? "done" : "error");
@@ -80,8 +119,7 @@ export default function Simular() {
     reset();
     setSelectedArtefact(null);
     setSubject("");
-    setWadFile(null);
-    setWadText("");
+    setWadFiles([]);
   }
 
   if (step === "done" && result) {
@@ -89,7 +127,8 @@ export default function Simular() {
       <div>
         <h1 style={{ fontSize: 24, fontWeight: 700, marginBottom: 8 }}>Resultado da Simulação</h1>
         <p style={{ color: "#888", marginBottom: 32 }}>
-          Artefato: <strong style={{ color: "#e8e8e8" }}>{selectedArtefact?.artefactName}</strong>
+          Artefato:{" "}
+          <strong style={{ color: "#e8e8e8" }}>{selectedArtefact?.artefactName}</strong>
         </p>
         <SimulationResults result={result} onReset={handleReset} />
       </div>
@@ -137,7 +176,11 @@ export default function Simular() {
                   <span style={{ fontSize: 14, color: isSelected ? colors.text : "#555" }}>
                     {SUBJECT_ICONS[s]}
                   </span>
-                  <span style={{ fontSize: 13, fontWeight: isSelected ? 600 : 400, color: isSelected ? colors.text : "#666" }}>
+                  <span style={{
+                    fontSize: 13,
+                    fontWeight: isSelected ? 600 : 400,
+                    color: isSelected ? colors.text : "#666",
+                  }}>
                     {s}
                   </span>
                 </button>
@@ -163,13 +206,10 @@ export default function Simular() {
                     type="button"
                     onClick={() => setSelectedArtefact(art)}
                     style={{
-                      textAlign: "left",
-                      padding: "12px 16px",
+                      textAlign: "left", padding: "12px 16px",
                       background: isSelected ? "#0d1f3c" : "#141414",
                       border: `1px solid ${isSelected ? "#4f8ef7" : "#262626"}`,
-                      borderRadius: 8,
-                      cursor: "pointer",
-                      transition: "all 0.15s",
+                      borderRadius: 8, cursor: "pointer", transition: "all 0.15s",
                     }}
                   >
                     <div style={{ fontWeight: 600, fontSize: 14, color: isSelected ? "#7ab3ff" : "#ccc" }}>
@@ -177,7 +217,9 @@ export default function Simular() {
                     </div>
                     {isSelected && (
                       <div style={{ fontSize: 12, color: "#4f8ef799", marginTop: 4, lineHeight: 1.5 }}>
-                        {art.description.length > 120 ? art.description.slice(0, 120) + "..." : art.description}
+                        {art.description.length > 120
+                          ? art.description.slice(0, 120) + "..."
+                          : art.description}
                       </div>
                     )}
                   </button>
@@ -187,54 +229,77 @@ export default function Simular() {
           )}
         </div>
 
-        {/* WAD upload */}
+        {/* WAD upload — multiple */}
         <div>
-          <label style={labelStyle}>Seu WAD (.md ou .txt) *</label>
+          <label style={labelStyle}>
+            Seu WAD *{" "}
+            <span style={{ color: "#555", fontWeight: 400 }}>(MD, TXT, PDF, imagens…)</span>
+          </label>
+
           <label
             htmlFor="wad-sim-upload"
             style={{
               display: "flex", alignItems: "center", justifyContent: "center",
               gap: 10, padding: "20px",
-              border: wadFile ? "1.5px solid #4f8ef7" : "1.5px dashed #333",
-              borderRadius: 8, background: wadFile ? "#0d1f3c" : "#0d0d0d",
-              cursor: "pointer", fontSize: 14,
-              color: wadFile ? "#7ab3ff" : "#555",
-              transition: "all 0.15s",
+              border: "1.5px dashed #333", borderRadius: 8,
+              background: "#0d0d0d", cursor: "pointer", fontSize: 14, color: "#555",
             }}
           >
-            {wadFile ? (
-              <>
-                <span>📄</span>
-                <span style={{ fontWeight: 500 }}>{wadFile.name}</span>
-                <span style={{ fontSize: 12, color: "#4f8ef780" }}>
-                  ({(wadFile.size / 1024).toFixed(1)} KB)
-                </span>
-              </>
-            ) : (
-              <>
-                <span style={{ fontSize: 20 }}>⬆</span>
-                <span>Clique para anexar seu WAD</span>
-              </>
-            )}
+            <span style={{ fontSize: 20 }}>⬆</span>
+            <span>Clique para adicionar arquivo(s)</span>
           </label>
           <input
             id="wad-sim-upload"
             type="file"
-            accept=".md,.txt"
+            multiple
+            accept=".md,.txt,.docx,.pdf,.xlsx,.xls,.csv,.png,.jpg,.jpeg,.webp,application/pdf,image/*"
             style={{ display: "none" }}
-            onChange={(e) => {
-              const file = e.target.files?.[0];
-              if (file) handleWadUpload(file);
-            }}
+            onChange={(e) => void handleWadAdd(e.target.files)}
           />
-          {wadFile && (
-            <button
-              type="button"
-              onClick={() => { setWadFile(null); setWadText(""); }}
-              style={{ marginTop: 6, fontSize: 12, color: "#ef4444", background: "none", border: "none", cursor: "pointer" }}
-            >
-              Remover arquivo
-            </button>
+
+          {wadFiles.length > 0 && (
+            <div style={{ marginTop: 8, display: "flex", flexDirection: "column", gap: 4 }}>
+              {wadFiles.map((a) => (
+                <div
+                  key={a.file.name}
+                  style={{
+                    display: "flex", alignItems: "center", gap: 8,
+                    padding: "6px 10px", borderRadius: 6,
+                    background: "#0d1f3c", border: "1px solid #1e3a5f",
+                  }}
+                >
+                  <span style={{ fontSize: 13 }}>📄</span>
+                  <span style={{
+                    fontSize: 13, color: "#7ab3ff", flex: 1,
+                    overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
+                  }}>
+                    {a.file.name}
+                  </span>
+                  <span style={{ fontSize: 11, color: "#475569", flexShrink: 0 }}>
+                    {(a.file.size / 1024).toFixed(1)} KB{" "}
+                    {a.text !== undefined ? "· texto" : "· binário"}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => removeWadFile(a.file.name)}
+                    style={{
+                      background: "none", border: "none", cursor: "pointer",
+                      color: "#ef4444", fontSize: 14, padding: "0 2px", lineHeight: 1,
+                    }}
+                    title="Remover"
+                  >
+                    ×
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {wadFiles.some((a) => a.text === undefined) && (
+            <p style={{ fontSize: 12, color: "#fbbf2499", marginTop: 6 }}>
+              ⚠ Arquivos binários (PDF, imagens) são listados mas o conteúdo textual não é extraído
+              automaticamente — a IA usará o contexto dos arquivos de texto.
+            </p>
           )}
         </div>
 
@@ -245,13 +310,10 @@ export default function Simular() {
             padding: "12px 28px",
             background: isValid ? "#4f8ef7" : "#1e1e1e",
             color: isValid ? "#fff" : "#555",
-            border: "none",
-            borderRadius: 8,
-            fontWeight: 600,
-            fontSize: 15,
+            border: "none", borderRadius: 8,
+            fontWeight: 600, fontSize: 15,
             cursor: isValid ? "pointer" : "not-allowed",
-            alignSelf: "flex-start",
-            transition: "background 0.15s",
+            alignSelf: "flex-start", transition: "background 0.15s",
           }}
         >
           {step === "loading" ? "Simulando..." : "Simular Avaliação"}
@@ -261,6 +323,8 @@ export default function Simular() {
   );
 }
 
+// ── SimulationResults ─────────────────────────────────────────────────────────
+
 function SimulationResults({
   result,
   onReset,
@@ -268,50 +332,43 @@ function SimulationResults({
   result: EvaluationSimulationView;
   onReset: () => void;
 }) {
+  const feedbackParas = result.predictedFeedback.split("\n\n");
+
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 28 }}>
       {/* Score */}
-      <div
-        style={{
-          display: "flex",
-          alignItems: "center",
-          gap: 20,
-          padding: "20px 24px",
-          background: "#141414",
-          border: "1px solid #222",
-          borderRadius: 8,
-        }}
-      >
+      <div style={{
+        display: "flex", alignItems: "center", gap: 20,
+        padding: "20px 24px", background: "#141414",
+        border: "1px solid #222", borderRadius: 8,
+      }}>
         <div>
           <div style={{ color: "#888", fontSize: 13, marginBottom: 4 }}>Nota prevista</div>
           <div style={{ fontSize: 40, fontWeight: 700 }}>
             {result.predictedScore}
-            <span style={{ fontSize: 20, color: "#888", fontWeight: 400 }}>/{result.maxScore}</span>
+            <span style={{ fontSize: 20, color: "#888", fontWeight: 400 }}>
+              /{result.maxScore}
+            </span>
           </div>
         </div>
         <div style={{ width: 1, height: 48, background: "#222" }} />
         <div>
           <div style={{ color: "#888", fontSize: 13, marginBottom: 4 }}>Confiança</div>
-          <div style={{ fontSize: 28, fontWeight: 700, color: "#8b5cf6" }}>{result.confidence}%</div>
+          <div style={{ fontSize: 28, fontWeight: 700, color: "#8b5cf6" }}>
+            {result.confidence}%
+          </div>
         </div>
       </div>
 
       {/* Feedback */}
       <section>
         <h3 style={{ fontSize: 15, fontWeight: 600, marginBottom: 12 }}>Feedback previsto</h3>
-        <div
-          style={{
-            padding: "16px",
-            background: "#141414",
-            border: "1px solid #222",
-            borderRadius: 8,
-            color: "#aaa",
-            lineHeight: 1.7,
-            fontSize: 14,
-          }}
-        >
-          {result.predictedFeedback.split("\n\n").map((para, i) => (
-            <p key={i} style={{ marginBottom: i < result.predictedFeedback.split("\n\n").length - 1 ? 12 : 0 }}>
+        <div style={{
+          padding: "16px", background: "#141414", border: "1px solid #222",
+          borderRadius: 8, color: "#aaa", lineHeight: 1.7, fontSize: 14,
+        }}>
+          {feedbackParas.map((para, i) => (
+            <p key={i} style={{ marginBottom: i < feedbackParas.length - 1 ? 12 : 0 }}>
               {para.replace(/\*\*/g, "")}
             </p>
           ))}
@@ -327,12 +384,9 @@ function SimulationResults({
               <div
                 key={req.requirement}
                 style={{
-                  padding: "8px 14px",
-                  background: "#141414",
-                  border: "1px solid #222",
-                  borderRadius: 6,
-                  color: "#fbbf24",
-                  fontSize: 14,
+                  padding: "8px 14px", background: "#141414",
+                  border: "1px solid #222", borderRadius: 6,
+                  color: "#fbbf24", fontSize: 14,
                 }}
               >
                 {req.requirement} · impacto estimado: -{req.impact}
@@ -343,39 +397,43 @@ function SimulationResults({
       )}
 
       {/* Risk areas */}
-      <section>
-        <h3 style={{ fontSize: 15, fontWeight: 600, marginBottom: 12 }}>Áreas de risco</h3>
-        <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-          {result.risks.map((risk) => (
-            <div
-              key={risk.area}
-              style={{
-                padding: "12px 14px",
-                background: "#141414",
-                border: "1px solid #222",
-                borderRadius: 6,
-              }}
-            >
-              <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 4 }}>
-                <span style={{ fontWeight: 500 }}>{risk.area}</span>
-                <span
-                  style={{
-                    fontSize: 12,
-                    padding: "2px 8px",
-                    borderRadius: 4,
-                    background: risk.severity === "high" ? "#2d0f0f" : risk.severity === "medium" ? "#2d2000" : "#0f1a2d",
-                    color: risk.severity === "high" ? "#f87171" : risk.severity === "medium" ? "#fbbf24" : "#60a5fa",
-                  }}
-                >
-                  {risk.severity === "high" ? "Alto" : risk.severity === "medium" ? "Médio" : "Baixo"}
-                </span>
+      {result.risks.length > 0 && (
+        <section>
+          <h3 style={{ fontSize: 15, fontWeight: 600, marginBottom: 12 }}>Áreas de risco</h3>
+          <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+            {result.risks.map((risk) => (
+              <div
+                key={risk.area}
+                style={{
+                  padding: "12px 14px", background: "#141414",
+                  border: "1px solid #222", borderRadius: 6,
+                }}
+              >
+                <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 4 }}>
+                  <span style={{ fontWeight: 500 }}>{risk.area}</span>
+                  <span style={{
+                    fontSize: 12, padding: "2px 8px", borderRadius: 4,
+                    background:
+                      risk.severity === "high" ? "#2d0f0f"
+                      : risk.severity === "medium" ? "#2d2000"
+                      : "#0f1a2d",
+                    color:
+                      risk.severity === "high" ? "#f87171"
+                      : risk.severity === "medium" ? "#fbbf24"
+                      : "#60a5fa",
+                  }}>
+                    {risk.severity === "high" ? "Alto"
+                      : risk.severity === "medium" ? "Médio"
+                      : "Baixo"}
+                  </span>
+                </div>
+                <p style={{ color: "#888", fontSize: 13 }}>{risk.description}</p>
+                <p style={{ color: "#aaa", fontSize: 13, marginTop: 4 }}>→ {risk.suggestion}</p>
               </div>
-              <p style={{ color: "#888", fontSize: 13 }}>{risk.description}</p>
-              <p style={{ color: "#aaa", fontSize: 13, marginTop: 4 }}>→ {risk.suggestion}</p>
-            </div>
-          ))}
-        </div>
-      </section>
+            ))}
+          </div>
+        </section>
+      )}
 
       {/* Similar cases */}
       {result.similarCases.length > 0 && (
@@ -386,13 +444,9 @@ function SimulationResults({
               <div
                 key={match.id}
                 style={{
-                  display: "flex",
-                  justifyContent: "space-between",
-                  alignItems: "center",
-                  padding: "10px 14px",
-                  background: "#141414",
-                  border: "1px solid #222",
-                  borderRadius: 6,
+                  display: "flex", justifyContent: "space-between", alignItems: "center",
+                  padding: "10px 14px", background: "#141414",
+                  border: "1px solid #222", borderRadius: 6,
                 }}
               >
                 <span style={{ fontWeight: 500 }}>{match.activityDescription}</span>
@@ -406,21 +460,14 @@ function SimulationResults({
         </section>
       )}
 
+      {/* Pseudo-prompt */}
       <section>
         <h3 style={{ fontSize: 15, fontWeight: 600, marginBottom: 12 }}>Pseudo-prompt combinado</h3>
-        <pre
-          style={{
-            padding: "16px",
-            background: "#141414",
-            border: "1px solid #222",
-            borderRadius: 8,
-            color: "#aaa",
-            lineHeight: 1.6,
-            fontSize: 12,
-            whiteSpace: "pre-wrap",
-            fontFamily: "inherit",
-          }}
-        >
+        <pre style={{
+          padding: "16px", background: "#141414", border: "1px solid #222",
+          borderRadius: 8, color: "#aaa", lineHeight: 1.6, fontSize: 12,
+          whiteSpace: "pre-wrap", fontFamily: "inherit",
+        }}>
           {result.combinedPseudoPrompt}
         </pre>
       </section>
@@ -428,14 +475,9 @@ function SimulationResults({
       <button
         onClick={onReset}
         style={{
-          padding: "8px 16px",
-          background: "#222",
-          color: "#e8e8e8",
-          border: "1px solid #333",
-          borderRadius: 6,
-          cursor: "pointer",
-          fontSize: 14,
-          alignSelf: "flex-start",
+          padding: "8px 16px", background: "#222", color: "#e8e8e8",
+          border: "1px solid #333", borderRadius: 6,
+          cursor: "pointer", fontSize: 14, alignSelf: "flex-start",
         }}
       >
         Nova simulação
@@ -443,6 +485,8 @@ function SimulationResults({
     </div>
   );
 }
+
+// ── styles ────────────────────────────────────────────────────────────────────
 
 const labelStyle: React.CSSProperties = {
   display: "block",

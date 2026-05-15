@@ -2,7 +2,13 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { toast } from "sonner";
-import type { UploadedDocumentInput } from "@/features/shared/types";
+import type { AcademicDocumentType, UploadedDocumentInput } from "@/features/shared/types";
+
+interface UploadedFile {
+  file: File;
+  doc: UploadedDocumentInput;
+  text?: string;
+}
 
 interface GroupFeedback {
   id: string;
@@ -30,17 +36,58 @@ interface ProjectData {
   artefacts: ArtefactContext[];
 }
 
+// ── helpers ──────────────────────────────────────────────────────────────────
+
+function isTextLike(file: File) {
+  const name = file.name.toLowerCase();
+  return (
+    file.type.startsWith("text/") ||
+    name.endsWith(".md") ||
+    name.endsWith(".txt") ||
+    name.endsWith(".csv")
+  );
+}
+
+function fileToBase64(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onerror = () => reject(new Error("Arquivo inválido."));
+    reader.onload = () => resolve(String(reader.result).split(",")[1] ?? "");
+    reader.readAsDataURL(file);
+  });
+}
+
+async function toUploadedFile(
+  file: File,
+  documentType: AcademicDocumentType
+): Promise<UploadedFile> {
+  const [contentBase64, text] = await Promise.all([
+    fileToBase64(file),
+    isTextLike(file) ? file.text() : Promise.resolve(undefined),
+  ]);
+  return {
+    file,
+    text,
+    doc: {
+      fileName: file.name,
+      mimeType: file.type || "application/octet-stream",
+      documentType,
+      contentBase64,
+    },
+  };
+}
+
+// ── component ─────────────────────────────────────────────────────────────────
+
 export default function BaseCorrecaoPage() {
   const [projectData, setProjectData] = useState<ProjectData | null>(null);
   const [loading, setLoading] = useState(true);
   const [selectedArtefact, setSelectedArtefact] = useState<ArtefactContext | null>(null);
 
-  // Form state
-  const [wadFile, setWadFile] = useState<File | null>(null);
-  const [wadText, setWadText] = useState("");
-  const [wadDocuments, setWadDocuments] = useState<UploadedDocumentInput[]>([]);
+  // form state
+  const [wadFiles, setWadFiles] = useState<UploadedFile[]>([]);
+  const [feedbackFiles, setFeedbackFiles] = useState<UploadedFile[]>([]);
   const [feedback, setFeedback] = useState("");
-  const [feedbackDocuments, setFeedbackDocuments] = useState<UploadedDocumentInput[]>([]);
   const [score, setScore] = useState("");
   const [maxScore, setMaxScore] = useState("10");
   const [submitting, setSubmitting] = useState(false);
@@ -50,7 +97,7 @@ export default function BaseCorrecaoPage() {
     try {
       const res = await fetch("/api/my-project");
       if (!res.ok) throw new Error("Erro ao carregar projeto");
-      const json = await res.json();
+      const json = await res.json() as { data: ProjectData };
       setProjectData(json.data);
     } catch {
       toast.error("Não foi possível carregar seu projeto.");
@@ -60,48 +107,84 @@ export default function BaseCorrecaoPage() {
   }, []);
 
   useEffect(() => {
-    void Promise.resolve().then(loadProject);
+    void loadProject();
   }, [loadProject]);
 
-  function handleSelectArtefact(artefact: ArtefactContext) {
-    setSelectedArtefact(artefact);
-    setWadFile(null);
-    setWadText("");
-    setWadDocuments([]);
+  // Refresh selected artefact after reload
+  useEffect(() => {
+    if (!projectData || !selectedArtefact) return;
+    const updated = projectData.artefacts.find((a) => a.id === selectedArtefact.id);
+    if (updated) setSelectedArtefact(updated);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [projectData]);
+
+  function resetForm() {
+    setWadFiles([]);
+    setFeedbackFiles([]);
     setFeedback("");
-    setFeedbackDocuments([]);
     setScore("");
     setMaxScore("10");
   }
 
-  async function handleWadUpload(file: File) {
-    setWadFile(file);
-    setWadDocuments([await fileToDocument(file, "group_wad")]);
-    if (isTextLike(file)) setWadText(await file.text());
+  function handleSelectArtefact(artefact: ArtefactContext) {
+    setSelectedArtefact(artefact);
+    resetForm();
   }
 
-  async function handleFeedbackUpload(files: FileList | null) {
-    if (!files) return;
-    const docs = await Promise.all(Array.from(files).map((file) => fileToDocument(file, "feedback_file")));
-    setFeedbackDocuments((current) => [...current, ...docs]);
+  async function handleWadAdd(fileList: FileList | null) {
+    if (!fileList) return;
+    const incoming = await Promise.all(
+      Array.from(fileList).map((f) => toUploadedFile(f, "group_wad"))
+    );
+    setWadFiles((prev) => {
+      const existing = new Set(prev.map((u) => u.file.name));
+      return [...prev, ...incoming.filter((u) => !existing.has(u.file.name))];
+    });
+  }
+
+  function removeWadFile(fileName: string) {
+    setWadFiles((prev) => prev.filter((u) => u.file.name !== fileName));
+  }
+
+  async function handleFeedbackAdd(fileList: FileList | null) {
+    if (!fileList) return;
+    const incoming = await Promise.all(
+      Array.from(fileList).map((f) => toUploadedFile(f, "feedback_file"))
+    );
+    setFeedbackFiles((prev) => {
+      const existing = new Set(prev.map((u) => u.file.name));
+      return [...prev, ...incoming.filter((u) => !existing.has(u.file.name))];
+    });
+  }
+
+  function removeFeedbackFile(fileName: string) {
+    setFeedbackFiles((prev) => prev.filter((u) => u.file.name !== fileName));
   }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!selectedArtefact || !projectData) return;
 
-    if (!feedback.trim() && feedbackDocuments.length === 0) {
-      toast.error("Cole o feedback recebido ou anexe o arquivo da correção.");
+    const hasFeedback = feedback.trim().length >= 1 || feedbackFiles.length > 0;
+    const hasWad = wadFiles.length > 0;
+
+    if (!hasWad) {
+      toast.error("Anexe pelo menos um arquivo do WAD.");
       return;
     }
-    if (!wadText.trim() && wadDocuments.length === 0) {
-      toast.error("Anexe ou cole o WAD entregue pelo grupo.");
+    if (!hasFeedback) {
+      toast.error("Cole o feedback recebido ou anexe o arquivo da correção.");
       return;
     }
     if (!score) {
       toast.error("Informe a nota recebida.");
       return;
     }
+
+    const wadText = wadFiles
+      .filter((u) => u.text !== undefined)
+      .map((u) => u.text!)
+      .join("\n\n---\n\n");
 
     setSubmitting(true);
     try {
@@ -114,25 +197,20 @@ export default function BaseCorrecaoPage() {
           feedback: feedback.trim(),
           score: parseFloat(score),
           maxScore: parseFloat(maxScore),
-          wadText: wadText,
-          wadFileName: wadFile?.name ?? "",
-          wadDocuments,
-          feedbackDocuments,
+          wadText,
+          wadFileName: wadFiles[0]?.file.name ?? "",
+          wadDocuments: wadFiles.map((u) => u.doc),
+          feedbackDocuments: feedbackFiles.map((u) => u.doc),
         }),
       });
 
       if (!res.ok) {
-        const err = await res.json();
+        const err = await res.json() as { error?: string };
         throw new Error(err.error ?? "Erro ao salvar");
       }
 
       toast.success("Correção salva com sucesso!");
-      setFeedback("");
-      setWadFile(null);
-      setWadText("");
-      setWadDocuments([]);
-      setFeedbackDocuments([]);
-      setScore("");
+      resetForm();
       await loadProject();
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Erro ao salvar correção.");
@@ -140,15 +218,6 @@ export default function BaseCorrecaoPage() {
       setSubmitting(false);
     }
   }
-
-  // Refresh selected artefact data after reload
-  useEffect(() => {
-    void Promise.resolve().then(() => {
-      if (!projectData || !selectedArtefact) return;
-      const updated = projectData.artefacts.find((a) => a.id === selectedArtefact.id);
-      if (updated) setSelectedArtefact(updated);
-    });
-  }, [projectData]); // eslint-disable-line react-hooks/exhaustive-deps
 
   if (loading) {
     return (
@@ -166,13 +235,13 @@ export default function BaseCorrecaoPage() {
     );
   }
 
-  const myFeedbacks = selectedArtefact?.groupFeedbacks.filter(
-    (f) => f.groupName === projectData.groupName
-  ) ?? [];
+  const myFeedbacks =
+    selectedArtefact?.groupFeedbacks.filter(
+      (f) => f.groupName === projectData.groupName
+    ) ?? [];
 
   return (
     <div>
-      {/* Header */}
       <div style={{ marginBottom: 28 }}>
         <h1 style={{ fontSize: 22, fontWeight: 700, marginBottom: 6 }}>Base de Correção</h1>
         <p style={{ color: "#888", fontSize: 14 }}>
@@ -182,32 +251,27 @@ export default function BaseCorrecaoPage() {
       </div>
 
       <div style={{ display: "grid", gridTemplateColumns: "240px 1fr", gap: 24, alignItems: "start" }}>
-        {/* Sidebar: artefact list */}
+        {/* Sidebar */}
         <div style={{ position: "sticky", top: 72 }}>
-          <p style={{ fontSize: 12, color: "#555", marginBottom: 10, textTransform: "uppercase", letterSpacing: 1 }}>
-            Artefatos
-          </p>
+          <p style={sectionLabelStyle}>Artefatos</p>
           {projectData.artefacts.length === 0 ? (
             <p style={{ fontSize: 13, color: "#555" }}>Nenhum artefato cadastrado.</p>
           ) : (
             projectData.artefacts.map((art) => {
-              const myCount = art.groupFeedbacks.filter((f) => f.groupName === projectData.groupName).length;
+              const myCount = art.groupFeedbacks.filter(
+                (f) => f.groupName === projectData.groupName
+              ).length;
               const isSelected = selectedArtefact?.id === art.id;
               return (
                 <button
                   key={art.id}
                   onClick={() => handleSelectArtefact(art)}
                   style={{
-                    display: "block",
-                    width: "100%",
-                    textAlign: "left",
-                    padding: "10px 14px",
-                    marginBottom: 6,
-                    borderRadius: 8,
+                    display: "block", width: "100%", textAlign: "left",
+                    padding: "10px 14px", marginBottom: 6, borderRadius: 8,
                     border: isSelected ? "1px solid #4f8ef7" : "1px solid #222",
                     background: isSelected ? "#0d1f3c" : "#141414",
-                    cursor: "pointer",
-                    transition: "all 0.15s",
+                    cursor: "pointer", transition: "all 0.15s",
                   }}
                 >
                   <div style={{ fontWeight: 600, fontSize: 14, color: isSelected ? "#7ab3ff" : "#ccc" }}>
@@ -226,7 +290,7 @@ export default function BaseCorrecaoPage() {
         <div>
           {!selectedArtefact ? (
             <div style={{
-              padding: "48px 24px", textAlign: "center", color: "#555",
+              padding: "48px 24px", textAlign: "center",
               background: "#141414", border: "1px solid #222", borderRadius: 10,
             }}>
               <p style={{ fontSize: 28, marginBottom: 12 }}>◈</p>
@@ -236,70 +300,60 @@ export default function BaseCorrecaoPage() {
             </div>
           ) : (
             <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
-              {/* Activity description card */}
+
+              {/* Description card */}
               <div style={panelStyle}>
-                <p style={{ fontSize: 12, color: "#555", textTransform: "uppercase", letterSpacing: 1, marginBottom: 8 }}>
-                  Descrição da atividade
-                </p>
+                <p style={sectionLabelStyle}>Descrição da atividade</p>
                 <p style={{ fontSize: 14, color: "#ccc", lineHeight: 1.7, whiteSpace: "pre-wrap" }}>
                   {selectedArtefact.description || "Sem descrição disponível."}
                 </p>
               </div>
 
-              {/* Submission form */}
+              {/* Form */}
               <form onSubmit={handleSubmit} style={panelStyle}>
                 <p style={{ fontWeight: 600, fontSize: 16, marginBottom: 20 }}>
                   Registrar correção recebida
                 </p>
 
-                {/* WAD upload */}
+                {/* WAD upload — multiple */}
                 <div style={{ marginBottom: 18 }}>
-                  <label style={labelStyle}>WAD entregue, planilha ou foto *</label>
+                  <label style={labelStyle}>
+                    WAD entregue * <span style={{ color: "#555", fontWeight: 400 }}>(MD, TXT, PDF, imagens…)</span>
+                  </label>
+
                   <label
                     htmlFor="wad-upload"
                     style={{
                       display: "flex", alignItems: "center", justifyContent: "center",
-                      gap: 10, padding: "16px 20px",
-                      border: wadFile ? "1.5px solid #4f8ef7" : "1.5px dashed #333",
-                      borderRadius: 8, background: wadFile ? "#0d1f3c" : "#0d0d0d",
-                      cursor: "pointer", fontSize: 14,
-                      color: wadFile ? "#7ab3ff" : "#555",
-                      transition: "all 0.15s",
+                      gap: 10, padding: "14px 20px",
+                      border: "1.5px dashed #333", borderRadius: 8,
+                      background: "#0d0d0d", cursor: "pointer", fontSize: 14, color: "#555",
                     }}
                   >
-                    {wadFile ? (
-                      <>
-                        <span>📄</span>
-                        <span style={{ fontWeight: 500 }}>{wadFile.name}</span>
-                        <span style={{ fontSize: 12, color: "#4f8ef780" }}>
-                          ({(wadFile.size / 1024).toFixed(1)} KB)
-                        </span>
-                      </>
-                    ) : (
-                      <>
-                        <span>⬆</span>
-                        <span>Clique para anexar seu WAD</span>
-                      </>
-                    )}
+                    <span>⬆</span>
+                    <span>Clique para adicionar arquivo(s) do WAD</span>
                   </label>
                   <input
                     id="wad-upload"
                     type="file"
+                    multiple
                     accept=".md,.txt,.docx,.pdf,.xlsx,.xls,.csv,.png,.jpg,.jpeg,.webp,application/pdf,image/*"
                     style={{ display: "none" }}
-                    onChange={(e) => {
-                      const file = e.target.files?.[0];
-                      if (file) handleWadUpload(file);
-                    }}
+                    onChange={(e) => void handleWadAdd(e.target.files)}
                   />
-                  {wadFile && (
-                    <button
-                      type="button"
-                      onClick={() => { setWadFile(null); setWadText(""); }}
-                      style={{ marginTop: 6, fontSize: 12, color: "#ef4444", background: "none", border: "none", cursor: "pointer" }}
-                    >
-                      Remover arquivo
-                    </button>
+
+                  {wadFiles.length > 0 && (
+                    <div style={{ marginTop: 8, display: "flex", flexDirection: "column", gap: 4 }}>
+                      {wadFiles.map((u) => (
+                        <FileChip
+                          key={u.file.name}
+                          name={u.file.name}
+                          size={u.file.size}
+                          hasText={u.text !== undefined}
+                          onRemove={() => removeWadFile(u.file.name)}
+                        />
+                      ))}
+                    </div>
                   )}
                 </div>
 
@@ -313,20 +367,39 @@ export default function BaseCorrecaoPage() {
                     rows={6}
                     style={inputStyle}
                   />
-                  <div style={{ marginTop: 8 }}>
-                    <input
-                      type="file"
-                      multiple
-                      accept=".xlsx,.xls,.csv,.docx,.pdf,.txt,.md,.png,.jpg,.jpeg,.webp,application/pdf,image/*"
-                      onChange={(event) => handleFeedbackUpload(event.target.files)}
-                      style={inputStyle}
-                    />
-                    {feedbackDocuments.length > 0 && (
-                      <p style={{ fontSize: 12, color: "#64748b", marginTop: 6 }}>
-                        {feedbackDocuments.length} arquivo(s) de feedback anexado(s)
-                      </p>
-                    )}
-                  </div>
+
+                  {/* Feedback file attachments */}
+                  <label
+                    htmlFor="feedback-upload"
+                    style={{
+                      display: "inline-flex", alignItems: "center", gap: 6,
+                      marginTop: 8, fontSize: 12, color: "#555", cursor: "pointer",
+                    }}
+                  >
+                    <span>📎</span> Anexar arquivo(s) da correção
+                  </label>
+                  <input
+                    id="feedback-upload"
+                    type="file"
+                    multiple
+                    accept=".xlsx,.xls,.csv,.docx,.pdf,.txt,.md,.png,.jpg,.jpeg,.webp,application/pdf,image/*"
+                    style={{ display: "none" }}
+                    onChange={(e) => void handleFeedbackAdd(e.target.files)}
+                  />
+
+                  {feedbackFiles.length > 0 && (
+                    <div style={{ marginTop: 6, display: "flex", flexDirection: "column", gap: 4 }}>
+                      {feedbackFiles.map((u) => (
+                        <FileChip
+                          key={u.file.name}
+                          name={u.file.name}
+                          size={u.file.size}
+                          hasText={u.text !== undefined}
+                          onRemove={() => removeFeedbackFile(u.file.name)}
+                        />
+                      ))}
+                    </div>
+                  )}
                 </div>
 
                 {/* Score inputs */}
@@ -364,14 +437,10 @@ export default function BaseCorrecaoPage() {
                   style={{
                     padding: "10px 24px",
                     background: submitting ? "#333" : "#4f8ef7",
-                    color: "#fff",
-                    border: "none",
-                    borderRadius: 8,
-                    fontWeight: 600,
-                    fontSize: 14,
+                    color: "#fff", border: "none", borderRadius: 8,
+                    fontWeight: 600, fontSize: 14,
                     cursor: submitting ? "not-allowed" : "pointer",
-                    width: "100%",
-                    transition: "background 0.15s",
+                    width: "100%", transition: "background 0.15s",
                   }}
                 >
                   {submitting ? "Salvando..." : "Salvar Correção"}
@@ -389,10 +458,8 @@ export default function BaseCorrecaoPage() {
                       <div
                         key={fb.id}
                         style={{
-                          padding: "14px 16px",
-                          background: "#0d0d0d",
-                          border: "1px solid #222",
-                          borderRadius: 8,
+                          padding: "14px 16px", background: "#0d0d0d",
+                          border: "1px solid #222", borderRadius: 8,
                         }}
                       >
                         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
@@ -410,20 +477,31 @@ export default function BaseCorrecaoPage() {
                           </div>
                         )}
 
-                        <p style={{ fontSize: 13, color: "#888", lineHeight: 1.6 }}>
-                          {fb.feedback.length > 300 ? fb.feedback.slice(0, 300) + "..." : fb.feedback}
-                        </p>
-
-                        {fb.feedback.length > 300 && (
-                          <details style={{ marginTop: 8 }}>
-                            <summary style={{ fontSize: 12, color: "#4f8ef7", cursor: "pointer" }}>
-                              Ver completo
-                            </summary>
-                            <p style={{ fontSize: 13, color: "#888", lineHeight: 1.6, marginTop: 8, whiteSpace: "pre-wrap" }}>
-                              {fb.feedback}
-                            </p>
-                          </details>
+                        {fb.uploadedDocuments.length > 1 && (
+                          <div style={{ fontSize: 12, color: "#475569", marginBottom: 8 }}>
+                            +{fb.uploadedDocuments.length - 1} arquivo(s) adicional(is)
+                          </div>
                         )}
+
+                        {fb.feedback ? (
+                          <>
+                            <p style={{ fontSize: 13, color: "#888", lineHeight: 1.6 }}>
+                              {fb.feedback.length > 300
+                                ? fb.feedback.slice(0, 300) + "..."
+                                : fb.feedback}
+                            </p>
+                            {fb.feedback.length > 300 && (
+                              <details style={{ marginTop: 8 }}>
+                                <summary style={{ fontSize: 12, color: "#4f8ef7", cursor: "pointer" }}>
+                                  Ver completo
+                                </summary>
+                                <p style={{ fontSize: 13, color: "#888", lineHeight: 1.6, marginTop: 8, whiteSpace: "pre-wrap" }}>
+                                  {fb.feedback}
+                                </p>
+                              </details>
+                            )}
+                          </>
+                        ) : null}
                       </div>
                     ))}
                   </div>
@@ -437,6 +515,49 @@ export default function BaseCorrecaoPage() {
   );
 }
 
+// ── FileChip ──────────────────────────────────────────────────────────────────
+
+function FileChip({
+  name,
+  size,
+  hasText,
+  onRemove,
+}: {
+  name: string;
+  size: number;
+  hasText: boolean;
+  onRemove: () => void;
+}) {
+  return (
+    <div style={{
+      display: "flex", alignItems: "center", gap: 8,
+      padding: "6px 10px", borderRadius: 6,
+      background: "#0d1f3c", border: "1px solid #1e3a5f",
+    }}>
+      <span style={{ fontSize: 13 }}>📄</span>
+      <span style={{ fontSize: 13, color: "#7ab3ff", flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+        {name}
+      </span>
+      <span style={{ fontSize: 11, color: "#475569", flexShrink: 0 }}>
+        {(size / 1024).toFixed(1)} KB {hasText ? "· texto" : "· binário"}
+      </span>
+      <button
+        type="button"
+        onClick={onRemove}
+        style={{
+          background: "none", border: "none", cursor: "pointer",
+          color: "#ef4444", fontSize: 14, padding: "0 2px", lineHeight: 1,
+        }}
+        title="Remover"
+      >
+        ×
+      </button>
+    </div>
+  );
+}
+
+// ── styles ────────────────────────────────────────────────────────────────────
+
 const panelStyle: React.CSSProperties = {
   padding: "20px 24px",
   background: "#141414",
@@ -444,46 +565,18 @@ const panelStyle: React.CSSProperties = {
   borderRadius: 10,
 };
 
+const sectionLabelStyle: React.CSSProperties = {
+  fontSize: 12, color: "#555", marginBottom: 10,
+  textTransform: "uppercase", letterSpacing: 1,
+};
+
 const labelStyle: React.CSSProperties = {
-  display: "block",
-  fontSize: 13,
-  color: "#888",
-  marginBottom: 6,
-  fontWeight: 500,
+  display: "block", fontSize: 13, color: "#888", marginBottom: 6, fontWeight: 500,
 };
 
 const inputStyle: React.CSSProperties = {
-  width: "100%",
-  background: "#0d0d0d",
-  border: "1px solid #2a2a2a",
-  borderRadius: 8,
-  color: "#e8e8e8",
-  fontSize: 14,
-  padding: "10px 12px",
-  outline: "none",
-  resize: "vertical" as const,
-  boxSizing: "border-box",
+  width: "100%", background: "#0d0d0d",
+  border: "1px solid #2a2a2a", borderRadius: 8,
+  color: "#e8e8e8", fontSize: 14, padding: "10px 12px",
+  outline: "none", resize: "vertical" as const, boxSizing: "border-box",
 };
-
-async function fileToDocument(file: File, documentType: "group_wad" | "feedback_file"): Promise<UploadedDocumentInput> {
-  return {
-    fileName: file.name,
-    mimeType: file.type || "application/octet-stream",
-    documentType,
-    contentBase64: await fileToBase64(file),
-  };
-}
-
-function fileToBase64(file: File): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onerror = () => reject(new Error("Arquivo invalido."));
-    reader.onload = () => resolve(String(reader.result).split(",")[1] ?? "");
-    reader.readAsDataURL(file);
-  });
-}
-
-function isTextLike(file: File) {
-  const name = file.name.toLowerCase();
-  return file.type.startsWith("text/") || name.endsWith(".md") || name.endsWith(".txt") || name.endsWith(".csv");
-}
