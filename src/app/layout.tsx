@@ -13,9 +13,6 @@ export const metadata: Metadata = {
   description: "Inferência de padrões de correção acadêmica",
 };
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-const db = () => getPrisma() as unknown as Record<string, any>;
-
 export default async function RootLayout({ children }: { children: React.ReactNode }) {
   const session = await getSession();
   const headersList = await headers();
@@ -33,16 +30,19 @@ export default async function RootLayout({ children }: { children: React.ReactNo
     pathname.startsWith("/aguardando-grupo");
 
   if (!isPublicRoute && !session.isAdmin) {
+    let hasMembership = true;
     try {
-      const membership = await db().groupMember.findFirst({
+      const membership = await getPrisma().groupMember.findFirst({
         where: { userId: session.userId },
         select: { groupName: true },
       });
-      if (!membership) {
-        redirect("/aguardando-grupo");
-      }
+      hasMembership = Boolean(membership);
     } catch {
       // Prevent a membership lookup failure from crashing all student pages.
+      hasMembership = true;
+    }
+    if (!hasMembership) {
+      redirect("/aguardando-grupo");
     }
   }
 

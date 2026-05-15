@@ -11,10 +11,7 @@ export async function GET(request: Request) {
       return NextResponse.json({ groupName: null });
     }
     const { searchParams } = new URL(request.url);
-    const projectContextId = searchParams.get("projectContextId") ?? "";
-    if (!projectContextId) {
-      return NextResponse.json({ groupName: null });
-    }
+    const projectContextId = searchParams.get("projectContextId") ?? undefined;
     const member = await getGroupMemberByUser(session.user.id, projectContextId);
     return NextResponse.json({ groupName: member?.groupName ?? null });
   } catch {

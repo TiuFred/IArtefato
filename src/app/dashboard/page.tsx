@@ -133,47 +133,60 @@ async function loadAdminDashboardData() {
 }
 
 async function loadStudentDashboardData(userId: string) {
-  const membership = await getPrisma().groupMember.findFirst({
-    where: { userId },
-    include: {
-      projectContext: {
-        include: {
-          artefactContexts: {
-            include: {
-              groupFeedbacks: {
-                where: {},
-                orderBy: { createdAt: "desc" },
+  try {
+    const membership = await getPrisma().groupMember.findFirst({
+      where: { userId },
+      include: {
+        projectContext: {
+          include: {
+            artefactContexts: {
+              include: {
+                groupFeedbacks: {
+                  where: {},
+                  orderBy: { createdAt: "desc" },
+                },
               },
+              orderBy: { createdAt: "asc" },
             },
-            orderBy: { createdAt: "asc" },
           },
         },
       },
-    },
-    orderBy: { createdAt: "asc" },
-  });
+      orderBy: { createdAt: "asc" },
+    });
 
-  if (!membership) {
-    return { groupName: "Sem grupo", projectName: "Sem projeto", artefactCount: 0, feedbacks: [] as Array<{ id: string; artefactName: string; feedback: string; score: number; maxScore: number }> };
+    if (!membership) {
+      return emptyStudentDashboardData();
+    }
+
+    const feedbacks = membership.projectContext.artefactContexts.flatMap((artefact) =>
+      artefact.groupFeedbacks
+        .filter((feedback) => feedback.groupName === membership.groupName)
+        .map((feedback) => ({
+          id: feedback.id,
+          artefactName: artefact.artefactName,
+          feedback: feedback.feedback,
+          score: feedback.score,
+          maxScore: feedback.maxScore,
+        }))
+    );
+
+    return {
+      groupName: membership.groupName,
+      projectName: membership.projectContext.name,
+      artefactCount: membership.projectContext.artefactContexts.length,
+      feedbacks,
+    };
+  } catch {
+    return emptyStudentDashboardData();
   }
+}
 
-  const feedbacks = membership.projectContext.artefactContexts.flatMap((artefact) =>
-    artefact.groupFeedbacks
-      .filter((feedback) => feedback.groupName === membership.groupName)
-      .map((feedback) => ({
-        id: feedback.id,
-        artefactName: artefact.artefactName,
-        feedback: feedback.feedback,
-        score: feedback.score,
-        maxScore: feedback.maxScore,
-      }))
-  );
-
+function emptyStudentDashboardData() {
   return {
-    groupName: membership.groupName,
-    projectName: membership.projectContext.name,
-    artefactCount: membership.projectContext.artefactContexts.length,
-    feedbacks,
+    groupName: "Sem grupo",
+    projectName: "Sem projeto",
+    artefactCount: 0,
+    feedbacks: [] as Array<{ id: string; artefactName: string; feedback: string; score: number; maxScore: number }>,
   };
 }
 

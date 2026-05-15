@@ -8,19 +8,17 @@ export const runtime = "nodejs";
 const assignSchema = z.object({
   userId: z.string().min(1),
   groupName: z.enum(["G01", "G02", "G03", "G04", "G05"]),
-  projectContextId: z.string().min(1),
+  projectContextId: z.string().min(1).optional(),
 });
 
-export async function GET(request: Request) {
+export async function GET() {
   try {
     const session = await auth();
     if (!session?.user?.isAdmin) {
       return NextResponse.json({ error: "Acesso restrito ao admin." }, { status: 403 });
     }
 
-    const { searchParams } = new URL(request.url);
-    const projectContextId = searchParams.get("projectContextId") ?? undefined;
-    const members = await listGroupMembers(projectContextId);
+    const members = await listGroupMembers();
     return NextResponse.json({ data: members });
   } catch {
     return NextResponse.json({ error: "Nao foi possivel carregar membros." }, { status: 500 });

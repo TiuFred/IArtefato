@@ -4,7 +4,7 @@ import { z } from "zod";
 import { getSession } from "@/lib/session";
 import { getPrisma } from "@/services/database/prisma";
 import { isConfiguredAdminEmail } from "@/features/auth/services/adminEmails";
-import { ensureProjectForGroup } from "@/features/group-member";
+import { ensureMainProject } from "@/features/group-member";
 
 const patchSchema = z.object({
   name: z.string().optional(),
@@ -45,7 +45,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
       if (body.groupName === null) {
         await getPrisma().groupMember.deleteMany({ where: { userId: id } });
       } else {
-        const project = await ensureProjectForGroup(body.groupName);
+        const project = await ensureMainProject(body.groupName);
         await getPrisma().groupMember.deleteMany({ where: { userId: id } });
         await getPrisma().groupMember.create({
           data: { userId: id, projectContextId: project.id, groupName: body.groupName },

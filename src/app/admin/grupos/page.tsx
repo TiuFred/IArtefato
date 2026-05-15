@@ -3,7 +3,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { toast } from "sonner";
 import type { GroupMemberView } from "@/features/group-member";
-import type { ProjectContextView } from "@/features/shared/types";
 
 const GROUP_NAMES = ["G01", "G02", "G03", "G04", "G05"];
 
@@ -27,10 +26,8 @@ const btnDanger: React.CSSProperties = {
 };
 
 export default function AdminGruposPage() {
-  const [projects, setProjects] = useState<ProjectContextView[]>([]);
   const [users, setUsers] = useState<User[]>([]);
   const [members, setMembers] = useState<GroupMemberView[]>([]);
-  const [selectedProject, setSelectedProject] = useState("");
   const [assignForm, setAssignForm] = useState({ userId: "", groupName: "G01" });
   const [isSaving, setIsSaving] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
@@ -38,30 +35,26 @@ export default function AdminGruposPage() {
   const loadData = useCallback(async () => {
     setIsLoading(true);
     try {
-      const [projectsRes, usersRes] = await Promise.all([
-        fetch("/api/project-contexts"),
+      const [usersRes, membersRes] = await Promise.all([
         fetch("/api/admin/users"),
+        fetch("/api/group-members"),
       ]);
-      const [projectsPayload, usersPayload] = await Promise.all([
-        projectsRes.json(),
+      const [usersPayload, membersPayload] = await Promise.all([
         usersRes.json(),
+        membersRes.json(),
       ]);
-      setProjects(projectsPayload.data ?? []);
       setUsers(usersPayload.data ?? []);
-      if ((projectsPayload.data ?? []).length > 0 && !selectedProject) {
-        setSelectedProject(projectsPayload.data[0].id);
-      }
+      setMembers(membersPayload.data ?? []);
     } finally {
       setIsLoading(false);
     }
-  }, [selectedProject]);
+  }, []);
 
   const loadMembers = useCallback(async () => {
-    if (!selectedProject) return;
-    const res = await fetch(`/api/group-members?projectContextId=${selectedProject}`);
+    const res = await fetch("/api/group-members");
     const payload = await res.json();
     setMembers(payload.data ?? []);
-  }, [selectedProject]);
+  }, []);
 
   useEffect(() => {
     void Promise.resolve().then(loadData);
@@ -72,8 +65,8 @@ export default function AdminGruposPage() {
   }, [loadMembers]);
 
   async function handleAssign() {
-    if (!assignForm.userId || !selectedProject) {
-      toast.error("Selecione um usuario e um projeto.");
+    if (!assignForm.userId) {
+      toast.error("Selecione um usuario.");
       return;
     }
     setIsSaving(true);
@@ -81,7 +74,7 @@ export default function AdminGruposPage() {
       const res = await fetch("/api/group-members", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ...assignForm, projectContextId: selectedProject }),
+        body: JSON.stringify(assignForm),
       });
       const payload = await res.json();
       if (!res.ok) throw new Error(payload.error);
@@ -97,7 +90,7 @@ export default function AdminGruposPage() {
 
   async function handleRemove(userId: string) {
     try {
-      const res = await fetch(`/api/group-members/${userId}?projectContextId=${selectedProject}`, {
+      const res = await fetch(`/api/group-members/${userId}`, {
         method: "DELETE",
       });
       if (!res.ok) throw new Error("Falha ao remover.");
@@ -125,27 +118,12 @@ export default function AdminGruposPage() {
       <div>
         <h1 style={{ fontSize: 22, fontWeight: 700, marginBottom: 6 }}>Alocacao de Grupos</h1>
         <p style={{ color: "#64748b", fontSize: 14 }}>
-          Atribua cada aluno ao seu grupo dentro de um projeto.
+          Atribua cada aluno a um grupo dentro do projeto principal compartilhado.
         </p>
       </div>
 
-      <div style={card}>
-        <label style={label}>Projeto</label>
-        <select
-          style={sel}
-          value={selectedProject}
-          onChange={(e) => setSelectedProject(e.target.value)}
-        >
-          <option value="">Selecione um projeto...</option>
-          {projects.map((p) => (
-            <option key={p.id} value={p.id}>{p.name} {p.discipline ? `- ${p.discipline}` : ""}</option>
-          ))}
-        </select>
-      </div>
-
-      {selectedProject && (
-        <>
-          <div style={card}>
+      <>
+        <div style={card}>
             <p style={{ fontSize: 13, fontWeight: 700, color: "#64748b", letterSpacing: ".06em", textTransform: "uppercase", marginBottom: 16 }}>
               Alocar Aluno
             </p>
@@ -181,9 +159,9 @@ export default function AdminGruposPage() {
                 {isSaving ? "Salvando..." : "Alocar"}
               </button>
             </div>
-          </div>
+        </div>
 
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 12 }}>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 12 }}>
             {GROUP_NAMES.map((groupName) => {
               const groupMembers = byGroup[groupName] ?? [];
               return (
@@ -223,9 +201,8 @@ export default function AdminGruposPage() {
                 </div>
               );
             })}
-          </div>
-        </>
-      )}
+        </div>
+      </>
     </div>
   );
 }

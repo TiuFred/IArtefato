@@ -1,6 +1,7 @@
 import "server-only";
 
 import { getPrisma } from "@/services/database/prisma";
+import { ensureMainProject } from "./groupProjectRepository";
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const db = () => getPrisma() as unknown as Record<string, any>;
@@ -31,17 +32,19 @@ const includeGroupMember = {
 };
 
 export async function listGroupMembers(projectContextId?: string): Promise<GroupMemberView[]> {
+  const project = projectContextId ? null : await ensureMainProject();
   const rows: GroupMemberRow[] = await db().groupMember.findMany({
-    where: projectContextId ? { projectContextId } : undefined,
+    where: { projectContextId: projectContextId ?? project!.id },
     include: includeGroupMember,
     orderBy: [{ groupName: "asc" }, { createdAt: "asc" }],
   });
   return rows.map(mapGroupMember);
 }
 
-export async function getGroupMemberByUser(userId: string, projectContextId: string): Promise<GroupMemberView | null> {
+export async function getGroupMemberByUser(userId: string, projectContextId?: string): Promise<GroupMemberView | null> {
+  const project = projectContextId ? null : await ensureMainProject();
   const row: GroupMemberRow | null = await db().groupMember.findUnique({
-    where: { userId_projectContextId: { userId, projectContextId } },
+    where: { userId_projectContextId: { userId, projectContextId: projectContextId ?? project!.id } },
     include: includeGroupMember,
   });
   return row ? mapGroupMember(row) : null;
@@ -50,20 +53,22 @@ export async function getGroupMemberByUser(userId: string, projectContextId: str
 export async function assignGroupMember(params: {
   userId: string;
   groupName: string;
-  projectContextId: string;
+  projectContextId?: string;
 }): Promise<GroupMemberView> {
+  const project = params.projectContextId ? null : await ensureMainProject(params.groupName);
   const row: GroupMemberRow = await db().groupMember.upsert({
-    where: { userId_projectContextId: { userId: params.userId, projectContextId: params.projectContextId } },
-    create: { userId: params.userId, groupName: params.groupName, projectContextId: params.projectContextId },
+    where: { userId_projectContextId: { userId: params.userId, projectContextId: params.projectContextId ?? project!.id } },
+    create: { userId: params.userId, groupName: params.groupName, projectContextId: params.projectContextId ?? project!.id },
     update: { groupName: params.groupName },
     include: includeGroupMember,
   });
   return mapGroupMember(row);
 }
 
-export async function removeGroupMember(userId: string, projectContextId: string): Promise<void> {
+export async function removeGroupMember(userId: string, projectContextId?: string): Promise<void> {
+  const project = projectContextId ? null : await ensureMainProject();
   await db().groupMember.deleteMany({
-    where: { userId, projectContextId },
+    where: { userId, projectContextId: projectContextId ?? project!.id },
   });
 }
 

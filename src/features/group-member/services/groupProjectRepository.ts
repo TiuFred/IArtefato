@@ -2,17 +2,34 @@ import "server-only";
 
 import { getPrisma } from "@/services/database/prisma";
 
+export const MAIN_PROJECT_NAME = "Projeto Principal";
+
 export async function ensureProjectForGroup(groupName: string): Promise<{ id: string; name: string }> {
+  return ensureMainProject(groupName);
+}
+
+export async function ensureMainProject(groupName?: string): Promise<{ id: string; name: string }> {
   const prisma = getPrisma();
-  const projectName = `Projeto ${groupName}`;
 
   const existing = await prisma.projectContext.findFirst({
-    where: { name: projectName },
+    where: { name: MAIN_PROJECT_NAME },
     select: { id: true, name: true },
   });
   if (existing) return existing;
 
   const template = await prisma.projectContext.findFirst({
+    where: {
+      name: { notIn: ["Projeto G01", "Projeto G02", "Projeto G03", "Projeto G04", "Projeto G05"] },
+    },
+    include: {
+      uploadedDocuments: true,
+      artefactContexts: {
+        include: { uploadedDocuments: true },
+        orderBy: { createdAt: "asc" },
+      },
+    },
+    orderBy: { createdAt: "asc" },
+  }) ?? await prisma.projectContext.findFirst({
     include: {
       uploadedDocuments: true,
       artefactContexts: {
@@ -25,9 +42,9 @@ export async function ensureProjectForGroup(groupName: string): Promise<{ id: st
 
   return prisma.projectContext.create({
     data: {
-      name: projectName,
+      name: MAIN_PROJECT_NAME,
       discipline: template?.discipline ?? "",
-      description: template?.description || `Projeto vinculado automaticamente ao grupo ${groupName}.`,
+      description: template?.description || `Projeto principal compartilhado por todos os grupos${groupName ? `, incluindo ${groupName}` : ""}.`,
       tapText: template?.tapText ?? "",
       globalRules: template?.globalRules ?? {},
       uploadedDocuments: {

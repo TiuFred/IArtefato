@@ -17,12 +17,7 @@ export async function DELETE(
       return NextResponse.json({ error: "Acesso restrito ao admin." }, { status: 403 });
     }
     const { userId } = paramsSchema.parse(await context.params);
-    const { searchParams } = new URL(request.url);
-    const projectContextId = searchParams.get("projectContextId") ?? "";
-    if (!projectContextId) {
-      return NextResponse.json({ error: "projectContextId obrigatorio." }, { status: 400 });
-    }
-    await removeGroupMember(userId, projectContextId);
+    await removeGroupMember(userId);
     return new NextResponse(null, { status: 204 });
   } catch (error) {
     return NextResponse.json(
