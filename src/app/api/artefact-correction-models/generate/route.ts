@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
+import { auth } from "@/auth";
 import { generateArtefactCorrectionModel } from "@/features/artefact-correction-model/services";
 
 export const runtime = "nodejs";
@@ -10,6 +11,11 @@ const generateSchema = z.object({
 
 export async function POST(request: Request) {
   try {
+    const session = await auth();
+    if (!session?.user?.isAdmin) {
+      return NextResponse.json({ error: "Apenas administradores podem gerar modelos de correcao." }, { status: 403 });
+    }
+
     const input = generateSchema.parse(await request.json());
     return NextResponse.json({ data: await generateArtefactCorrectionModel(input.artefactContextId) }, { status: 201 });
   } catch (error) {

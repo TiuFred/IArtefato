@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/auth";
-import { getArtefactContext } from "@/features/artefact-context";
+import { getArtefactContext, sanitizeArtefactForGroup } from "@/features/artefact-context";
 import { getPrisma } from "@/services/database/prisma";
 
 export const runtime = "nodejs";
@@ -35,17 +35,7 @@ export async function GET(_: Request, context: { params: Promise<{ id: string }>
     }
 
     return NextResponse.json({
-      data: {
-        ...artefact,
-        groupFeedbacks: artefact.groupFeedbacks.map((feedback) => {
-          if (feedback.groupName === membership.groupName) return feedback;
-          return {
-            ...feedback,
-            wadText: "",
-            wadFileName: "",
-          };
-        }),
-      },
+      data: sanitizeArtefactForGroup(artefact, membership.groupName),
     });
   } catch {
     return NextResponse.json({ error: "Nao foi possivel carregar o artefato." }, { status: 500 });

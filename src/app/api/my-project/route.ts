@@ -1,17 +1,21 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { getPrisma } from "@/services/database/prisma";
-import { ensureArtefactContextsForProject } from "@/features/artefact-context";
-
-export const runtime = "nodejs";
+import { ensureArtefactContextsForProject, sanitizeOtherGroupFeedback } from "@/features/artefact-context";
 
 type FeedbackRow = {
   groupName: string;
+  activityDescription: string;
+  feedback: string;
+  score: number;
+  maxScore: number;
   wadText: string;
   wadFileName: string;
-  uploadedDocuments?: unknown[];
+  uploadedDocuments: unknown[];
   [key: string]: unknown;
 };
+
+export const runtime = "nodejs";
 
 type ArtefactRow = {
   groupFeedbacks: FeedbackRow[];
@@ -87,12 +91,7 @@ export async function GET() {
       ...artefact,
       groupFeedbacks: artefact.groupFeedbacks.map((feedback: FeedbackRow) => {
         if (feedback.groupName === refreshedMembership.groupName) return feedback;
-        return {
-          ...feedback,
-          wadText: "",
-          wadFileName: "",
-          uploadedDocuments: [],
-        };
+        return sanitizeOtherGroupFeedback(feedback);
       }),
     }));
 
