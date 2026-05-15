@@ -3,7 +3,13 @@ import { auth } from "@/auth";
 import { getPrisma } from "@/services/database/prisma";
 import { ensureArtefactContextsForProject, sanitizeOtherGroupFeedback } from "@/features/artefact-context";
 
+export const runtime = "nodejs";
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const anyDb = () => getPrisma() as unknown as Record<string, any>;
+
 type FeedbackRow = {
+  id: string;
   groupName: string;
   activityDescription: string;
   feedback: string;
@@ -12,15 +18,37 @@ type FeedbackRow = {
   wadText: string;
   wadFileName: string;
   uploadedDocuments: unknown[];
+  createdAt: Date;
   [key: string]: unknown;
 };
 
-export const runtime = "nodejs";
-
 type ArtefactRow = {
+  id: string;
   groupFeedbacks: FeedbackRow[];
   [key: string]: unknown;
 };
+
+async function fetchMembership(where: Record<string, unknown>) {
+  return anyDb().groupMember.findFirst({
+    where,
+    include: {
+      projectContext: {
+        include: {
+          artefactContexts: {
+            include: {
+              groupFeedbacks: {
+                orderBy: { createdAt: "asc" },
+                // uploadedDocuments omitted — not rendered in base-correcao/simular UI
+              },
+            },
+            orderBy: { createdAt: "asc" },
+          },
+        },
+      },
+    },
+    orderBy: { createdAt: "asc" },
+  });
+}
 
 export async function GET() {
   try {
@@ -29,26 +57,7 @@ export async function GET() {
       return NextResponse.json({ error: "Nao autenticado." }, { status: 401 });
     }
 
-    const membership = await getPrisma().groupMember.findFirst({
-      where: { userId: session.user.id },
-      include: {
-        projectContext: {
-          include: {
-            artefactContexts: {
-              include: {
-                groupFeedbacks: {
-                  orderBy: { createdAt: "asc" },
-                  include: { uploadedDocuments: { orderBy: { createdAt: "asc" } } },
-                },
-                correctionModels: { orderBy: { generatedAt: "desc" }, take: 1 },
-              },
-              orderBy: { createdAt: "asc" },
-            },
-          },
-        },
-      },
-      orderBy: { createdAt: "asc" },
-    });
+    const membership = await fetchMembership({ userId: session.user.id });
 
     if (!membership) {
       return NextResponse.json({ error: "Sem grupo atribuido." }, { status: 403 });
@@ -57,37 +66,19 @@ export async function GET() {
     const projectContextId = membership.projectContextId ?? membership.projectContext?.id;
     if (projectContextId) {
       try {
-        await ensureArtefactContextsForProject(projectContextId);
+        await ensureArtefactContextsForProject(String(projectContextId));
       } catch {
         // Do not fail the project load if artefact backfill hits legacy inconsistent data.
       }
     }
 
-    const refreshedMembership = await getPrisma().groupMember.findFirst({
-      where: { id: membership.id },
-      include: {
-        projectContext: {
-          include: {
-            artefactContexts: {
-              include: {
-                groupFeedbacks: {
-                  orderBy: { createdAt: "asc" },
-                  include: { uploadedDocuments: { orderBy: { createdAt: "asc" } } },
-                },
-                correctionModels: { orderBy: { generatedAt: "desc" }, take: 1 },
-              },
-              orderBy: { createdAt: "asc" },
-            },
-          },
-        },
-      },
-    });
+    const refreshedMembership = await fetchMembership({ id: membership.id });
 
     if (!refreshedMembership) {
       return NextResponse.json({ error: "Sem grupo atribuido." }, { status: 403 });
     }
 
-    const artefacts = refreshedMembership.projectContext.artefactContexts.map((artefact: ArtefactRow) => ({
+    const artefacts = (refreshedMembership.projectContext.artefactContexts as ArtefactRow[]).map((artefact) => ({
       ...artefact,
       groupFeedbacks: artefact.groupFeedbacks.map((feedback: FeedbackRow) => {
         if (feedback.groupName === refreshedMembership.groupName) return feedback;
@@ -102,7 +93,8 @@ export async function GET() {
         artefacts,
       },
     });
-  } catch {
+  } catch (error) {
+    console.error("[my-project:get]", error);
     return NextResponse.json({ error: "Erro ao carregar projeto." }, { status: 500 });
   }
 }
