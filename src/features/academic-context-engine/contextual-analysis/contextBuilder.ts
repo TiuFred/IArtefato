@@ -1,6 +1,7 @@
 import "server-only";
 
 import type { ArtefactContextView, GroupFeedbackView, ProjectContextView, UploadedDocumentView } from "@/features/shared/types";
+import { getDefaultAcademicContext } from "../baseline/defaultAcademicContext";
 
 export function buildArtefactSemanticContext(params: {
   projectContext: Pick<ProjectContextView, "name" | "discipline" | "description" | "tapText">;
@@ -12,6 +13,7 @@ export function buildArtefactSemanticContext(params: {
   groupFeedbacks: GroupFeedbackView[];
 }) {
   return [
+    `CONTEXTO ACADEMICO BASE OBRIGATORIO:\n${getDefaultAcademicContext()}`,
     `PROJETO: ${params.projectContext.name}`,
     `DISCIPLINA: ${params.projectContext.discipline || "Nao informada"}`,
     `CONTEXTO GLOBAL/TAP:\n${params.projectContext.description}\n${params.projectContext.tapText}`,

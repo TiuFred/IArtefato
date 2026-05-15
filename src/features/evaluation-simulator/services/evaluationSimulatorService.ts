@@ -1,6 +1,7 @@
 import "server-only";
 
 import { generateGeminiJson } from "@/services/ai/gemini";
+import { getDefaultAcademicContext } from "@/features/academic-context-engine/baseline/defaultAcademicContext";
 import { composeEvaluationSimulationPrompt } from "@/features/prompt-composer/services";
 import { searchSimilarCorrectionCases } from "@/features/semantic-memory/services";
 import { getLatestModelByArtefactName } from "@/features/artefact-correction-model/services";
@@ -46,6 +47,7 @@ export async function simulateEvaluationWithGemini(
     contextCases: similarCases,
     combinedPseudoPrompt: combined.texto,
     artefactModel,
+    baselineContext: getDefaultAcademicContext(),
   });
 
   const output = await generateGeminiJson(prompt, evaluationSimulationSchema);

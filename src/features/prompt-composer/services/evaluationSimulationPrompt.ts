@@ -5,6 +5,7 @@ export function composeEvaluationSimulationPrompt(params: {
   contextCases: SimulationContextCase[];
   combinedPseudoPrompt: string;
   artefactModel?: ArtefactCorrectionModelView | null;
+  baselineContext?: string;
 }): string {
   const context = params.contextCases
     .map((item, index) => {
@@ -44,6 +45,9 @@ Estilo de correcao: tom=${params.artefactModel.correctionStyle.tone}, foco=${par
 
 Tarefa: simular como uma IA avaliadora de professor provavelmente reagiria a uma nova resposta, usando memoria de padroes inferidos anteriormente.
 O objetivo nao e ser uma IA corretora generica; e reutilizar padroes de correcao observados.
+
+CONTEXTO ACADEMICO BASE OBRIGATORIO:
+${params.baselineContext || "Nao informado."}
 
 NOVA ATIVIDADE:
 ${params.input.activityDescription}
@@ -86,6 +90,7 @@ Retorne apenas JSON valido, sem markdown, neste formato:
 Regras:
 - predictedScore deve estar entre 0 e ${params.input.maxScore}.
 - Se houver modelo especifico do artefato disponivel, ele e a fonte primaria de padroes e deve ser priorizado sobre casos gerais.
+- Use sempre o TAPI/projeto parceiro e o WAD padrao/modelo como base de contexto antes de avaliar o artefato.
 - Se nao houver modelo do artefato, baseie a previsao nos casos similares e pseudo-prompts combinados.
 - Assuma por padrao um avaliador altamente exigente, criterioso e detalhista.
 - Em caso de ambiguidade, estime a resposta do professor pela interpretacao mais rigorosa plausivel, nao pela mais benevolente.

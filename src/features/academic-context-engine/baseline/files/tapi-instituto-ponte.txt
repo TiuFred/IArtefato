@@ -1,0 +1,96 @@
+PROJETO PARCEIRO
+1AMD2 - Aplicação Web
+
+-- 1 of 4 --
+
+PROJETO: Desenvolvimento de uma aplicação Web para criação, publicação, aplicação e correção de provas de
+modo remoto
+EMPRESA: Instituto Ponte
+BREVE DESCRIÇÃO EMPRESA / MINI BIO: O Instituto Ponte é uma OSCIP (Organização da Sociedade
+Civil de Interesse Público) fundada em setembro de 2014, que hoje atende 440 estudantes de 18 estados do Brasil
+com o propósito de ser a Ponte para a ascensão social em uma geração, por meio da educação de qualidade, para
+jovens em vulnerabilidade social. O Instituto conecta SOLIDARIEDADE a jovens talentosos de baixa renda e
+transforma contribuição em EDUCAÇÃO.
+PROFESSOR ORIENTADOR: (De preenchimento do INTELI)
+OVERVIEW
+● PRINCIPAL ÁREA DE NEGÓCIO: Educação
+● LÍDER DO PROJETO / PONTO FOCAL: Verônica Caricati (Gerente Educacional)
+● PONTO FOCAL BACKUP: Pedro Cavalcante (Analista de Dados)
+ESBOÇO DO PROJETO
+● PROBLEMA: Desequilíbrio entre acessibilidade, estabilidade e funcionalidade em avaliações remotas.
+● OBJETIVO: Desenvolver uma aplicação web para gestão de avaliações remotas, contemplando a
+inserção nativa de equações, gerenciamento de uploads de arquivos de resolução e ferramenta de
+correção distribuída por itens da avaliação.
+● BENEFÍCIOS ESPERADOS PARA O PARCEIRO: Democratização do acesso às provas
+(acessibilidade universal); redução da carga operacional dos professores (fim do recebimento de provas
+via WhatsApp); maior justiça avaliativa através da correção por item; e aumento da integridade dos dados
+(fim da perda de anexos).
+DESCRIÇÃO CURTA DO PROJETO
+Plataforma web acessível para avaliações remotas com upload robusto e correção
+isonômica.
+ESCOPO MACRO
+Para o Aluno: Interface para visualização de questões com suporte a fórmulas (MathType/LaTeX),
+respostas objetivas e discursivas e sistema de upload de múltiplas imagens por questão.
+Para o Professor: Painel de criação de provas e, crucialmente, uma interface de correção onde o
+sistema agrupa todas as respostas da "Questão 1", depois "Questão 2", de todos os alunos, permitindo
+foco e isonomia.
+MVP
+● Desenvolvimento de uma aplicação web (Node.js/SQLite) que permita:
+● Criação de prova com ao menos um campo de texto e um campo de upload.
+● Interface do aluno para submissão de prova com suporte a upload de imagens e arquivos.
+● Painel de visualização de respostas para o professor, permitindo navegar pelas questões
+individualmente.
+
+-- 2 of 4 --
+
+DEMAIS ENTREGÁVEIS
+● Integração nativa de renderização de equações matemáticas (Ex: MathJax ou KaTeX).
+● Ferramenta de compressão de imagens no Client-Side (para otimizar uploads sem perder
+legibilidade).
+● Gerador de relatórios de desempenho por questão e por aluno.
+RESTRIÇÕES / O PROJETO NÃO CONTEMPLA
+● Autenticação: Não haverá sistema de login/senha (o acesso será via links únicos ou
+identificação simples: nome e e-mail).
+● APIs Externas: Não haverá integração com WebAPIs externas (ex: integração direta com
+Canvas ou Google Drive).
+● Proctoring: Não contempla bloqueio de navegador ou monitoramento por câmera (foco em
+acessibilidade).
+CONTEÚDO RESTRITO
+● Códigos-fonte que contenham credenciais de banco de dados de teste.
+● Dados sensíveis (nomes/e-mails reais) de alunos utilizados durante a fase de homologação.
+STAKEHOLDERS
+● Gerência Educacional: Interessados na padronização da correção.
+● Corpo Docente (Matemática/Português): Principais usuários e validadores das
+funções.
+● Núcleo de Experiência do Aluno: Garantes da acessibilidade e inclusão digital.
+
+-- 3 of 4 --
+
+CHECKLIST DE IMPACTO OPERACIONAL E ALINHAMENTO DO PROJETO COM OS
+OBJETIVOS DE DESENVOLVIMENTO SUSTENTÁVEL (ODS) DA AGENDA 2030 DA
+ONU
+Impactos Operacionais do Projeto
+Prática ou Contribuições Gerenciais: O projeto resolve o problema crítico da
+descentralização de provas (WhatsApp/Email), centralizando a governança dos dados
+avaliativos.
+O projeto promove competências para práticas de projetos de software: Sim, desafia os
+alunos a trabalharem com manipulação de arquivos pesados e UX para educação.
+Alinhamento do Projeto com ODS
+● Dimensão 1: Pessoas
+(ODS 4, 5) Educação de Qualidade: O projeto promove a educação de qualidade ao
+remover barreiras tecnológicas (software pesado) que impediam alunos de baixa renda ou
+com dispositivos limitados de realizarem provas com dignidade.
+Observações: Foco total na equidade de condições para avaliação acadêmica.
+● Dimensão 3: Prosperidade
+(ODS 8, 10) Redução das Desigualdades: Ao permitir que a prova rode em qualquer
+celular ou tablet, o projeto reduz a desigualdade digital entre os estudantes.
+Observações: A isonomia na correção (corrigir por questão) também garante que o
+critério de avaliação seja o mesmo para todos, reduzindo vieses.
+● Dimensão 4: Paz
+(ODS 16) Instituições Eficazes: Fortalece a transparência e a justiça no processo
+avaliativo da instituição.
+● Dimensão 5: Parcerias
+(ODS 9, 17) Inovação e Infraestrutura: Representa uma inovação em tecnologia
+educacional (EdTech) desenvolvida dentro da própria infraestrutura de ensino do Inteli.
+
+-- 4 of 4 --
