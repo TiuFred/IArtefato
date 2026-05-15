@@ -3,10 +3,14 @@ import Link from "next/link";
 
 export const dynamic = "force-dynamic";
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const anyDb = () => getPrisma() as unknown as Record<string, any>;
+
 type RecentCorrection = {
   id: string;
-  subject: string;
-  activityDescription: string;
+  groupName: string;
+  artefactName: string;
+  feedback: string;
   score: number;
   maxScore: number;
   createdAt: Date;
@@ -14,24 +18,53 @@ type RecentCorrection = {
 
 export default async function AdminPage() {
   const db = getPrisma();
-  const [userCount, activityCount, correctionCount, simulationCount] = await Promise.all([
-    db.user.count(),
-    db.activity.count(),
-    db.correctionCase.count(),
-    db.simulation.count(),
-  ]);
 
-  const recentCorrections: RecentCorrection[] = await db.correctionCase.findMany({
-    orderBy: { createdAt: "desc" },
-    take: 5,
-    select: { id: true, subject: true, activityDescription: true, score: true, maxScore: true, createdAt: true },
-  });
+  let userCount = 0;
+  let activityCount = 0;
+  let groupFeedbackCount = 0;
+  let modelCount = 0;
+  let recentCorrections: RecentCorrection[] = [];
+
+  try {
+    [userCount, activityCount] = await Promise.all([
+      db.user.count(),
+      db.activity.count(),
+    ]);
+  } catch { /* degraded */ }
+
+  try {
+    [groupFeedbackCount, modelCount] = await Promise.all([
+      anyDb().groupFeedback.count(),
+      anyDb().artefactCorrectionModel.count(),
+    ]);
+  } catch { /* degraded */ }
+
+  try {
+    const rows = await anyDb().groupFeedback.findMany({
+      orderBy: { createdAt: "desc" },
+      take: 5,
+      include: { artefactContext: { select: { artefactName: true } } },
+    });
+    recentCorrections = (rows as Array<{
+      id: string; groupName: string; feedback: string;
+      score: number; maxScore: number; createdAt: Date;
+      artefactContext: { artefactName: string };
+    }>).map((r) => ({
+      id: r.id,
+      groupName: r.groupName,
+      artefactName: r.artefactContext.artefactName,
+      feedback: r.feedback,
+      score: r.score,
+      maxScore: r.maxScore,
+      createdAt: r.createdAt,
+    }));
+  } catch { /* degraded */ }
 
   const stats = [
     { label: "Usuarios", value: userCount, href: "/admin/usuarios", color: "#a78bfa" },
     { label: "Artefatos", value: activityCount, href: "/admin/atividades", color: "#4f8ef7" },
-    { label: "Correcoes cadastradas", value: correctionCount, href: null, color: "#34d399" },
-    { label: "Simulacoes realizadas", value: simulationCount, href: null, color: "#fbbf24" },
+    { label: "Correcoes registradas", value: groupFeedbackCount, href: null, color: "#34d399" },
+    { label: "Modelos gerados", value: modelCount, href: null, color: "#fbbf24" },
   ];
 
   return (
@@ -79,12 +112,12 @@ export default async function AdminPage() {
       </div>
 
       <h2 style={{ fontSize: 15, fontWeight: 600, color: "#e2e8f0", marginBottom: 12 }}>
-        Correcoes recentes (todos os usuarios)
+        Correcoes recentes
       </h2>
       <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
         {recentCorrections.length === 0 ? (
           <div style={{ padding: "20px", background: "#141414", border: "1px solid #1e1e2e", borderRadius: 8, color: "#475569", fontSize: 14 }}>
-            Nenhuma correcao cadastrada ainda.
+            Nenhuma correcao registrada ainda.
           </div>
         ) : recentCorrections.map((c: RecentCorrection) => (
           <div key={c.id} style={{
@@ -95,9 +128,10 @@ export default async function AdminPage() {
               <span style={{
                 fontSize: 11, fontWeight: 600, marginRight: 8,
                 padding: "2px 7px", borderRadius: 4, background: "#1e1e2e", color: "#64748b",
-              }}>{c.subject}</span>
+              }}>{c.artefactName}</span>
+              <span style={{ fontSize: 13, color: "#4f8ef7", marginRight: 8 }}>{c.groupName}</span>
               <span style={{ fontSize: 13, color: "#94a3b8" }}>
-                {c.activityDescription.slice(0, 72)}{c.activityDescription.length > 72 ? "..." : ""}
+                {c.feedback.slice(0, 60)}{c.feedback.length > 60 ? "..." : ""}
               </span>
             </div>
             <div style={{ display: "flex", gap: 16, alignItems: "center", flexShrink: 0 }}>
