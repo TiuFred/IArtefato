@@ -91,6 +91,7 @@ export default function BaseCorrecaoPage() {
   const [score, setScore] = useState("");
   const [maxScore, setMaxScore] = useState("10");
   const [submitting, setSubmitting] = useState(false);
+  const [deleting, setDeleting] = useState<string | null>(null);
 
   const loadProject = useCallback(async () => {
     setLoading(true);
@@ -226,6 +227,23 @@ export default function BaseCorrecaoPage() {
     }
   }
 
+  async function handleDelete(feedbackId: string) {
+    setDeleting(feedbackId);
+    try {
+      const res = await fetch(`/api/group-feedbacks/${feedbackId}`, { method: "DELETE" });
+      if (!res.ok) {
+        const err = await res.json() as { error?: string };
+        throw new Error(err.error ?? "Erro ao apagar");
+      }
+      toast.success("Correção apagada.");
+      await loadProject();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Erro ao apagar correção.");
+    } finally {
+      setDeleting(null);
+    }
+  }
+
   if (loading) {
     return (
       <div style={{ padding: "48px 0", textAlign: "center", color: "#555" }}>
@@ -242,10 +260,12 @@ export default function BaseCorrecaoPage() {
     );
   }
 
+  // Enforce one correction per artefact: take only the most recent one
   const myFeedbacks =
     selectedArtefact?.groupFeedbacks.filter(
       (f) => f.groupName === projectData.groupName
     ) ?? [];
+  const existingFeedback = myFeedbacks[0] ?? null; // at most one per artefact
 
   return (
     <div>
@@ -316,203 +336,198 @@ export default function BaseCorrecaoPage() {
                 </p>
               </div>
 
-              {/* Form */}
-              <form onSubmit={handleSubmit} style={panelStyle}>
-                <p style={{ fontWeight: 600, fontSize: 16, marginBottom: 20 }}>
-                  Registrar correção recebida
-                </p>
-
-                {/* WAD upload — multiple */}
-                <div style={{ marginBottom: 18 }}>
-                  <label style={labelStyle}>
-                    WAD entregue * <span style={{ color: "#555", fontWeight: 400 }}>(MD, TXT, PDF, imagens…)</span>
-                  </label>
-
-                  <label
-                    htmlFor="wad-upload"
-                    style={{
-                      display: "flex", alignItems: "center", justifyContent: "center",
-                      gap: 10, padding: "14px 20px",
-                      border: "1.5px dashed #333", borderRadius: 8,
-                      background: "#0d0d0d", cursor: "pointer", fontSize: 14, color: "#555",
-                    }}
-                  >
-                    <span>⬆</span>
-                    <span>Clique para adicionar arquivo(s) do WAD</span>
-                  </label>
-                  <input
-                    id="wad-upload"
-                    type="file"
-                    multiple
-                    accept=".md,.txt,.docx,.pdf,.xlsx,.xls,.csv,.png,.jpg,.jpeg,.webp,application/pdf,image/*"
-                    style={{ display: "none" }}
-                    onChange={(e) => void handleWadAdd(e.target.files)}
-                  />
-
-                  {wadFiles.length > 0 && (
-                    <div style={{ marginTop: 8, display: "flex", flexDirection: "column", gap: 4 }}>
-                      {wadFiles.map((u) => (
-                        <FileChip
-                          key={u.file.name}
-                          name={u.file.name}
-                          size={u.file.size}
-                          hasText={u.text !== undefined}
-                          onRemove={() => removeWadFile(u.file.name)}
-                        />
-                      ))}
-                    </div>
-                  )}
-                </div>
-
-                {/* Feedback textarea */}
-                <div style={{ marginBottom: 18 }}>
-                  <label style={labelStyle}>Feedback recebido</label>
-                  <textarea
-                    value={feedback}
-                    onChange={(e) => setFeedback(e.target.value)}
-                    placeholder="Cole aqui o feedback que você recebeu do avaliador..."
-                    rows={6}
-                    style={inputStyle}
-                  />
-
-                  {/* Feedback file attachments */}
-                  <label
-                    htmlFor="feedback-upload"
-                    style={{
-                      display: "inline-flex", alignItems: "center", gap: 6,
-                      marginTop: 8, fontSize: 12, color: "#555", cursor: "pointer",
-                    }}
-                  >
-                    <span>📎</span> Anexar arquivo(s) da correção
-                  </label>
-                  <input
-                    id="feedback-upload"
-                    type="file"
-                    multiple
-                    accept=".xlsx,.xls,.csv,.docx,.pdf,.txt,.md,.png,.jpg,.jpeg,.webp,application/pdf,image/*"
-                    style={{ display: "none" }}
-                    onChange={(e) => void handleFeedbackAdd(e.target.files)}
-                  />
-
-                  {feedbackFiles.length > 0 && (
-                    <div style={{ marginTop: 6, display: "flex", flexDirection: "column", gap: 4 }}>
-                      {feedbackFiles.map((u) => (
-                        <FileChip
-                          key={u.file.name}
-                          name={u.file.name}
-                          size={u.file.size}
-                          hasText={u.text !== undefined}
-                          onRemove={() => removeFeedbackFile(u.file.name)}
-                        />
-                      ))}
-                    </div>
-                  )}
-                </div>
-
-                {/* Score inputs */}
-                <div style={{ display: "flex", gap: 16, marginBottom: 24 }}>
-                  <div style={{ flex: 1 }}>
-                    <label style={labelStyle}>Nota recebida *</label>
-                    <input
-                      type="number"
-                      value={score}
-                      onChange={(e) => setScore(e.target.value)}
-                      placeholder="ex: 7.5"
-                      min={0}
-                      step={0.1}
-                      style={inputStyle}
-                      required
-                    />
-                  </div>
-                  <div style={{ flex: 1 }}>
-                    <label style={labelStyle}>Nota máxima</label>
-                    <input
-                      type="number"
-                      value={maxScore}
-                      onChange={(e) => setMaxScore(e.target.value)}
-                      placeholder="ex: 10"
-                      min={0}
-                      step={0.1}
-                      style={inputStyle}
-                    />
-                  </div>
-                </div>
-
-                <button
-                  type="submit"
-                  disabled={submitting}
-                  style={{
-                    padding: "10px 24px",
-                    background: submitting ? "#333" : "#4f8ef7",
-                    color: "#fff", border: "none", borderRadius: 8,
-                    fontWeight: 600, fontSize: 14,
-                    cursor: submitting ? "not-allowed" : "pointer",
-                    width: "100%", transition: "background 0.15s",
-                  }}
-                >
-                  {submitting ? "Salvando..." : "Salvar Correção"}
-                </button>
-              </form>
-
-              {/* History */}
-              {myFeedbacks.length > 0 && (
+              {/* Existing correction OR form — never both */}
+              {existingFeedback ? (
                 <div style={panelStyle}>
-                  <p style={{ fontWeight: 600, fontSize: 15, marginBottom: 16 }}>
-                    Histórico do {projectData.groupName}
-                  </p>
-                  <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-                    {myFeedbacks.map((fb) => (
-                      <div
-                        key={fb.id}
-                        style={{
-                          padding: "14px 16px", background: "#0d0d0d",
-                          border: "1px solid #222", borderRadius: 8,
-                        }}
-                      >
-                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
-                          <span style={{ fontWeight: 600, fontSize: 15, color: "#e8e8e8" }}>
-                            {fb.score}/{fb.maxScore}
-                          </span>
-                          <span style={{ fontSize: 12, color: "#475569" }}>
-                            {new Date(fb.createdAt).toLocaleDateString("pt-BR")}
-                          </span>
-                        </div>
-
-                        {fb.wadFileName && (
-                          <div style={{ fontSize: 12, color: "#4f8ef7", marginBottom: 8 }}>
-                            📄 {fb.wadFileName}
-                          </div>
-                        )}
-
-                        {fb.uploadedDocuments.length > 1 && (
-                          <div style={{ fontSize: 12, color: "#475569", marginBottom: 8 }}>
-                            +{fb.uploadedDocuments.length - 1} arquivo(s) adicional(is)
-                          </div>
-                        )}
-
-                        {fb.feedback ? (
-                          <>
-                            <p style={{ fontSize: 13, color: "#888", lineHeight: 1.6 }}>
-                              {fb.feedback.length > 300
-                                ? fb.feedback.slice(0, 300) + "..."
-                                : fb.feedback}
-                            </p>
-                            {fb.feedback.length > 300 && (
-                              <details style={{ marginTop: 8 }}>
-                                <summary style={{ fontSize: 12, color: "#4f8ef7", cursor: "pointer" }}>
-                                  Ver completo
-                                </summary>
-                                <p style={{ fontSize: 13, color: "#888", lineHeight: 1.6, marginTop: 8, whiteSpace: "pre-wrap" }}>
-                                  {fb.feedback}
-                                </p>
-                              </details>
-                            )}
-                          </>
-                        ) : null}
-                      </div>
-                    ))}
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
+                    <p style={{ fontWeight: 600, fontSize: 15, margin: 0 }}>
+                      Correção do {projectData.groupName}
+                    </p>
+                    <button
+                      onClick={() => void handleDelete(existingFeedback.id)}
+                      disabled={deleting === existingFeedback.id}
+                      style={{
+                        padding: "6px 14px", borderRadius: 6, border: "1px solid #7f1d1d",
+                        background: "#1a0808", color: "#f87171",
+                        fontSize: 13, fontWeight: 600, cursor: "pointer",
+                        opacity: deleting === existingFeedback.id ? 0.5 : 1,
+                      }}
+                    >
+                      {deleting === existingFeedback.id ? "Apagando..." : "Apagar correção"}
+                    </button>
                   </div>
+
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
+                    <span style={{ fontWeight: 700, fontSize: 22, color: "#4ade80" }}>
+                      {existingFeedback.score}/{existingFeedback.maxScore}
+                    </span>
+                    <span style={{ fontSize: 12, color: "#475569" }}>
+                      {new Date(existingFeedback.createdAt).toLocaleDateString("pt-BR")}
+                    </span>
+                  </div>
+
+                  {existingFeedback.wadFileName && (
+                    <div style={{ fontSize: 12, color: "#4f8ef7", marginBottom: 10 }}>
+                      📄 {existingFeedback.wadFileName}
+                    </div>
+                  )}
+
+                  {existingFeedback.feedback ? (
+                    <>
+                      <p style={{ fontSize: 13, color: "#888", lineHeight: 1.6 }}>
+                        {existingFeedback.feedback.length > 300
+                          ? existingFeedback.feedback.slice(0, 300) + "..."
+                          : existingFeedback.feedback}
+                      </p>
+                      {existingFeedback.feedback.length > 300 && (
+                        <details style={{ marginTop: 8 }}>
+                          <summary style={{ fontSize: 12, color: "#4f8ef7", cursor: "pointer" }}>
+                            Ver completo
+                          </summary>
+                          <p style={{ fontSize: 13, color: "#888", lineHeight: 1.6, marginTop: 8, whiteSpace: "pre-wrap" }}>
+                            {existingFeedback.feedback}
+                          </p>
+                        </details>
+                      )}
+                    </>
+                  ) : null}
+
+                  <p style={{ fontSize: 12, color: "#334155", marginTop: 14 }}>
+                    Para registrar uma nova correção, apague esta primeiro.
+                  </p>
                 </div>
+              ) : (
+                <form onSubmit={handleSubmit} style={panelStyle}>
+                  <p style={{ fontWeight: 600, fontSize: 16, marginBottom: 20 }}>
+                    Registrar correção recebida
+                  </p>
+
+                  {/* WAD upload — multiple */}
+                  <div style={{ marginBottom: 18 }}>
+                    <label style={labelStyle}>
+                      WAD entregue * <span style={{ color: "#555", fontWeight: 400 }}>(MD, TXT, PDF, imagens…)</span>
+                    </label>
+                    <label
+                      htmlFor="wad-upload"
+                      style={{
+                        display: "flex", alignItems: "center", justifyContent: "center",
+                        gap: 10, padding: "14px 20px",
+                        border: "1.5px dashed #333", borderRadius: 8,
+                        background: "#0d0d0d", cursor: "pointer", fontSize: 14, color: "#555",
+                      }}
+                    >
+                      <span>⬆</span>
+                      <span>Clique para adicionar arquivo(s) do WAD</span>
+                    </label>
+                    <input
+                      id="wad-upload"
+                      type="file"
+                      multiple
+                      accept=".md,.txt,.docx,.pdf,.xlsx,.xls,.csv,.png,.jpg,.jpeg,.webp,application/pdf,image/*"
+                      style={{ display: "none" }}
+                      onChange={(e) => void handleWadAdd(e.target.files)}
+                    />
+                    {wadFiles.length > 0 && (
+                      <div style={{ marginTop: 8, display: "flex", flexDirection: "column", gap: 4 }}>
+                        {wadFiles.map((u) => (
+                          <FileChip
+                            key={u.file.name}
+                            name={u.file.name}
+                            size={u.file.size}
+                            hasText={u.text !== undefined}
+                            onRemove={() => removeWadFile(u.file.name)}
+                          />
+                        ))}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Feedback textarea */}
+                  <div style={{ marginBottom: 18 }}>
+                    <label style={labelStyle}>Feedback recebido</label>
+                    <textarea
+                      value={feedback}
+                      onChange={(e) => setFeedback(e.target.value)}
+                      placeholder="Cole aqui o feedback que você recebeu do avaliador..."
+                      rows={6}
+                      style={inputStyle}
+                    />
+                    <label
+                      htmlFor="feedback-upload"
+                      style={{
+                        display: "inline-flex", alignItems: "center", gap: 6,
+                        marginTop: 8, fontSize: 12, color: "#555", cursor: "pointer",
+                      }}
+                    >
+                      <span>📎</span> Anexar arquivo(s) da correção
+                    </label>
+                    <input
+                      id="feedback-upload"
+                      type="file"
+                      multiple
+                      accept=".xlsx,.xls,.csv,.docx,.pdf,.txt,.md,.png,.jpg,.jpeg,.webp,application/pdf,image/*"
+                      style={{ display: "none" }}
+                      onChange={(e) => void handleFeedbackAdd(e.target.files)}
+                    />
+                    {feedbackFiles.length > 0 && (
+                      <div style={{ marginTop: 6, display: "flex", flexDirection: "column", gap: 4 }}>
+                        {feedbackFiles.map((u) => (
+                          <FileChip
+                            key={u.file.name}
+                            name={u.file.name}
+                            size={u.file.size}
+                            hasText={u.text !== undefined}
+                            onRemove={() => removeFeedbackFile(u.file.name)}
+                          />
+                        ))}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Score inputs */}
+                  <div style={{ display: "flex", gap: 16, marginBottom: 24 }}>
+                    <div style={{ flex: 1 }}>
+                      <label style={labelStyle}>Nota recebida *</label>
+                      <input
+                        type="number"
+                        value={score}
+                        onChange={(e) => setScore(e.target.value)}
+                        placeholder="ex: 7.5"
+                        min={0}
+                        step={0.1}
+                        style={inputStyle}
+                        required
+                      />
+                    </div>
+                    <div style={{ flex: 1 }}>
+                      <label style={labelStyle}>Nota máxima</label>
+                      <input
+                        type="number"
+                        value={maxScore}
+                        onChange={(e) => setMaxScore(e.target.value)}
+                        placeholder="ex: 10"
+                        min={0}
+                        step={0.1}
+                        style={inputStyle}
+                      />
+                    </div>
+                  </div>
+
+                  <button
+                    type="submit"
+                    disabled={submitting}
+                    style={{
+                      padding: "10px 24px",
+                      background: submitting ? "#333" : "#4f8ef7",
+                      color: "#fff", border: "none", borderRadius: 8,
+                      fontWeight: 600, fontSize: 14,
+                      cursor: submitting ? "not-allowed" : "pointer",
+                      width: "100%", transition: "background 0.15s",
+                    }}
+                  >
+                    {submitting ? "Salvando..." : "Salvar Correção"}
+                  </button>
+                </form>
               )}
             </div>
           )}
