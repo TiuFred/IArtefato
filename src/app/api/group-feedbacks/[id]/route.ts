@@ -19,31 +19,23 @@ export async function DELETE(
 
     const { id } = await context.params;
 
-    // Fetch the feedback to check ownership
     const feedback = await anyDb().groupFeedback.findUnique({
       where: { id },
-      include: {
-        artefactContext: { select: { projectContextId: true } },
-      },
+      select: { id: true, groupName: true },
     });
 
     if (!feedback) {
       return NextResponse.json({ error: "Correcao nao encontrada." }, { status: 404 });
     }
 
-    // Admins can delete any feedback; students can only delete their group's feedback
+    // Admins can delete any feedback; students can only delete their own group's feedback
     if (!session.user.isAdmin) {
-      const membership = await getPrisma().groupMember.findUnique({
-        where: {
-          userId_projectContextId: {
-            userId: session.user.id,
-            projectContextId: feedback.artefactContext.projectContextId,
-          },
-        },
-        select: { groupName: true },
+      const membership = await getPrisma().groupMember.findFirst({
+        where: { userId: session.user.id, groupName: feedback.groupName },
+        select: { id: true },
       });
 
-      if (!membership || membership.groupName !== feedback.groupName) {
+      if (!membership) {
         return NextResponse.json({ error: "Acesso negado." }, { status: 403 });
       }
     }

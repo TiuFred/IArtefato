@@ -35,7 +35,7 @@ export const correctionInferenceSchema = z.object({
     score: z.number().min(0).max(100),
     observedAspects: z.array(z.string()),
   }),
-  pseudoPrompt: z.string().min(20),
+  pseudoPrompt: z.string().min(0).default(""),
   tags: z.array(z.string()),
   confidence: z.number().min(0).max(100),
 });

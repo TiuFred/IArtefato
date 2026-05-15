@@ -1,20 +1,12 @@
 import { getPrisma } from "@/services/database/prisma";
 import Link from "next/link";
+import { RecentCorrections, type CorrectionItem } from "./_components/RecentCorrections";
 
 export const dynamic = "force-dynamic";
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const anyDb = () => getPrisma() as unknown as Record<string, any>;
 
-type RecentCorrection = {
-  id: string;
-  groupName: string;
-  artefactName: string;
-  feedback: string;
-  score: number;
-  maxScore: number;
-  createdAt: Date;
-};
 
 export default async function AdminPage() {
   const db = getPrisma();
@@ -23,7 +15,7 @@ export default async function AdminPage() {
   let activityCount = 0;
   let groupFeedbackCount = 0;
   let modelCount = 0;
-  let recentCorrections: RecentCorrection[] = [];
+  let recentCorrections: CorrectionItem[] = [];
 
   try {
     [userCount, activityCount] = await Promise.all([
@@ -56,7 +48,7 @@ export default async function AdminPage() {
       feedback: r.feedback,
       score: r.score,
       maxScore: r.maxScore,
-      createdAt: r.createdAt,
+      createdAt: r.createdAt.toISOString(),
     }));
   } catch { /* degraded */ }
 
@@ -114,37 +106,7 @@ export default async function AdminPage() {
       <h2 style={{ fontSize: 15, fontWeight: 600, color: "#e2e8f0", marginBottom: 12 }}>
         Correcoes recentes
       </h2>
-      <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-        {recentCorrections.length === 0 ? (
-          <div style={{ padding: "20px", background: "#141414", border: "1px solid #1e1e2e", borderRadius: 8, color: "#475569", fontSize: 14 }}>
-            Nenhuma correcao registrada ainda.
-          </div>
-        ) : recentCorrections.map((c: RecentCorrection) => (
-          <div key={c.id} style={{
-            display: "flex", justifyContent: "space-between", alignItems: "center",
-            padding: "12px 16px", background: "#141414", border: "1px solid #1e1e2e", borderRadius: 8,
-          }}>
-            <div>
-              <span style={{
-                fontSize: 11, fontWeight: 600, marginRight: 8,
-                padding: "2px 7px", borderRadius: 4, background: "#1e1e2e", color: "#64748b",
-              }}>{c.artefactName}</span>
-              <span style={{ fontSize: 13, color: "#4f8ef7", marginRight: 8 }}>{c.groupName}</span>
-              <span style={{ fontSize: 13, color: "#94a3b8" }}>
-                {c.feedback.slice(0, 60)}{c.feedback.length > 60 ? "..." : ""}
-              </span>
-            </div>
-            <div style={{ display: "flex", gap: 16, alignItems: "center", flexShrink: 0 }}>
-              <span style={{ fontWeight: 700, color: c.score / c.maxScore >= 0.7 ? "#4ade80" : "#f87171" }}>
-                {c.score}/{c.maxScore}
-              </span>
-              <span style={{ fontSize: 12, color: "#334155" }}>
-                {new Date(c.createdAt).toLocaleDateString("pt-BR")}
-              </span>
-            </div>
-          </div>
-        ))}
-      </div>
+      <RecentCorrections initial={recentCorrections} />
     </div>
   );
 }
