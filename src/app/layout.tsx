@@ -63,6 +63,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
             <Link href="/dashboard" style={navLinkStyle}>Dashboard</Link>
             <Link href="/base-correcao" style={navLinkStyle}>Base de Correção</Link>
             <Link href="/simular" style={navLinkStyle}>Simular</Link>
+            <Link href="/criacao-perguntas" style={navLinkStyle}>Criação de Perguntas</Link>
             <Link href="/tutorial" style={navLinkStyle}>Tutorial</Link>
 
             {/* Admin-only links */}

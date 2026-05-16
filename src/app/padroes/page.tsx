@@ -14,12 +14,17 @@ type ModelRow = {
   rigorLevel: string;
   confidence: number;
   groupFeedbackCount: number;
+  inferredPrompt: string;
   inferredRules: unknown;
   inferredPatterns: unknown;
   detectedPenalties: unknown;
   correctionStyle: unknown;
   generatedAt: Date;
-  artefactContext: { id: string; description: string };
+  artefactContext: {
+    id: string;
+    description: string;
+    activity: { subject: string } | null;
+  };
 };
 
 type ArtefactStatusRow = {
@@ -40,7 +45,15 @@ export default async function PadroesPage() {
     const [rawModels, feedbackCount, artefacts] = await Promise.all([
       anyDb().artefactCorrectionModel.findMany({
         orderBy: { generatedAt: "desc" },
-        include: { artefactContext: { select: { id: true, description: true } } },
+        include: {
+          artefactContext: {
+            select: {
+              id: true,
+              description: true,
+              activity: { select: { subject: true } },
+            },
+          },
+        },
       }),
       anyDb().groupFeedback.count(),
       anyDb().artefactContext.findMany({
@@ -227,6 +240,7 @@ export default async function PadroesPage() {
           const penalties = Array.isArray(model.detectedPenalties) ? model.detectedPenalties as Array<{ name: string }> : [];
           const style = model.correctionStyle as { tone?: string; focusAreas?: string[] } | null;
           const color = rigorColor[model.rigorLevel] ?? "#888";
+          const subject = model.artefactContext?.activity?.subject ?? null;
 
           return (
             <div key={model.id} style={{
@@ -236,10 +250,20 @@ export default async function PadroesPage() {
               {/* Header */}
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 16 }}>
                 <div>
-                  <h2 style={{ fontSize: 17, fontWeight: 700, color: "#e8e8e8", marginBottom: 4 }}>
-                    {model.artefactName}
-                  </h2>
-                  <p style={{ fontSize: 12, color: "#555" }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4, flexWrap: "wrap" }}>
+                    <h2 style={{ fontSize: 17, fontWeight: 700, color: "#e8e8e8", margin: 0 }}>
+                      {model.artefactName}
+                    </h2>
+                    {subject && (
+                      <span style={{
+                        fontSize: 11, padding: "2px 9px", borderRadius: 20, fontWeight: 600,
+                        background: "#1e293b", border: "1px solid #334155", color: "#94a3b8",
+                      }}>
+                        {subject}
+                      </span>
+                    )}
+                  </div>
+                  <p style={{ fontSize: 12, color: "#555", margin: 0 }}>
                     Baseado em {model.groupFeedbackCount} correção(ões) ·{" "}
                     Gerado em {new Date(model.generatedAt).toLocaleDateString("pt-BR")}
                   </p>
@@ -260,6 +284,28 @@ export default async function PadroesPage() {
                   </span>
                 </div>
               </div>
+
+              {/* Inferred Prompt — the professor's correction prompt database entry */}
+              {model.inferredPrompt && (
+                <details style={{ marginBottom: 16 }}>
+                  <summary style={{
+                    fontSize: 11, color: "#475569", fontWeight: 700, textTransform: "uppercase",
+                    letterSpacing: "0.08em", cursor: "pointer", userSelect: "none",
+                    padding: "6px 0", listStyle: "none", display: "flex", alignItems: "center", gap: 6,
+                  }}>
+                    <span style={{ color: "#4f8ef7" }}>▸</span> Prompt inferido do professor
+                  </summary>
+                  <pre style={{
+                    marginTop: 8, padding: "12px 14px",
+                    background: "#0a0f1a", border: "1px solid #1e3a5f",
+                    borderRadius: 8, fontSize: 12, color: "#7ab3ff",
+                    lineHeight: 1.7, whiteSpace: "pre-wrap", wordBreak: "break-word",
+                    fontFamily: "monospace",
+                  }}>
+                    {model.inferredPrompt}
+                  </pre>
+                </details>
+              )}
 
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 16 }}>
                 {/* Rules */}
