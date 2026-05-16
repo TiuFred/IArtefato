@@ -12,6 +12,7 @@ import {
   HelpCircle,
   FileText,
   TrendingUp,
+  PenLine,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -34,6 +35,12 @@ const mainNav = [
     icon: FlaskConical,
     label: "Simular Avaliação",
     description: "Prever correção",
+  },
+  {
+    href: "/criacao-perguntas",
+    icon: PenLine,
+    label: "Criação de Perguntas",
+    description: "Gerar questões",
   },
 ];
 

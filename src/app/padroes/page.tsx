@@ -1,9 +1,12 @@
 import { getPrisma } from "@/services/database/prisma";
+import Link from "next/link";
 
 export const dynamic = "force-dynamic";
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const anyDb = () => getPrisma() as unknown as Record<string, any>;
+
+const MINIMUM_FEEDBACKS = 5;
 
 type ModelRow = {
   id: string;
@@ -16,25 +19,59 @@ type ModelRow = {
   detectedPenalties: unknown;
   correctionStyle: unknown;
   generatedAt: Date;
-  artefactContext: { description: string };
+  artefactContext: { id: string; description: string };
+};
+
+type ArtefactStatusRow = {
+  id: string;
+  artefactName: string;
+  feedbackCount: number;
+  hasModel: boolean;
+  projectName: string;
 };
 
 export default async function PadroesPage() {
   let models: ModelRow[] = [];
   let totalFeedbacks = 0;
+  let artefactStatuses: ArtefactStatusRow[] = [];
   let dbError = false;
 
   try {
-    [models, totalFeedbacks] = await Promise.all([
+    const [rawModels, feedbackCount, artefacts] = await Promise.all([
       anyDb().artefactCorrectionModel.findMany({
         orderBy: { generatedAt: "desc" },
-        include: { artefactContext: { select: { description: true } } },
+        include: { artefactContext: { select: { id: true, description: true } } },
       }),
       anyDb().groupFeedback.count(),
+      anyDb().artefactContext.findMany({
+        orderBy: { createdAt: "asc" },
+        include: {
+          projectContext: { select: { name: true } },
+          _count: { select: { groupFeedbacks: true } },
+          correctionModels: { select: { id: true }, take: 1, orderBy: { generatedAt: "desc" } },
+        },
+      }),
     ]);
+
+    models = rawModels;
+    totalFeedbacks = feedbackCount;
+    artefactStatuses = artefacts.map((a: any) => ({
+      id: a.id,
+      artefactName: a.artefactName,
+      feedbackCount: a._count.groupFeedbacks,
+      hasModel: a.correctionModels.length > 0,
+      projectName: a.projectContext.name,
+    }));
   } catch {
     dbError = true;
   }
+
+  const readyNoModel = artefactStatuses.filter(
+    (a) => a.feedbackCount >= MINIMUM_FEEDBACKS && !a.hasModel
+  );
+  const pending = artefactStatuses.filter(
+    (a) => a.feedbackCount < MINIMUM_FEEDBACKS
+  );
 
   const rigorLabel: Record<string, string> = {
     low: "Permissivo",
@@ -71,7 +108,97 @@ export default async function PadroesPage() {
         </div>
       )}
 
-      {!dbError && models.length === 0 && (
+      {/* ── Status dos artefatos ── */}
+      {!dbError && artefactStatuses.length > 0 && (
+        <div style={{ marginBottom: 32 }}>
+
+          {/* Prontos para gerar modelo */}
+          {readyNoModel.length > 0 && (
+            <div style={{ marginBottom: 20 }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 12 }}>
+                <p style={{ fontSize: 13, fontWeight: 700, color: "#60a5fa", margin: 0, textTransform: "uppercase", letterSpacing: "0.06em" }}>
+                  ⬡ Prontos para análise
+                </p>
+                <span style={{
+                  fontSize: 11, padding: "2px 8px", borderRadius: 20, fontWeight: 600,
+                  background: "#1e3a8a22", border: "1px solid #1e40af55", color: "#60a5fa",
+                }}>
+                  {readyNoModel.length} artefato{readyNoModel.length !== 1 ? "s" : ""}
+                </span>
+              </div>
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(220px, 1fr))", gap: 10 }}>
+                {readyNoModel.map((art) => (
+                  <Link key={art.id} href={`/artefatos/${art.id}`} style={{ textDecoration: "none" }}>
+                    <div style={{
+                      padding: "14px 16px", borderRadius: 10,
+                      background: "#0d1225", border: "1px solid #1e40af55",
+                      cursor: "pointer", transition: "border-color 0.15s",
+                    }}>
+                      <div style={{ fontWeight: 700, fontSize: 14, color: "#93c5fd", marginBottom: 4 }}>
+                        {art.artefactName}
+                      </div>
+                      <div style={{ fontSize: 12, color: "#334155", marginBottom: 10 }}>
+                        {art.projectName}
+                      </div>
+                      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                        <div style={{ flex: 1, background: "#1e293b", borderRadius: 4, height: 4, marginRight: 8 }}>
+                          <div style={{ height: 4, borderRadius: 4, background: "#3b82f6", width: "100%" }} />
+                        </div>
+                        <span style={{ fontSize: 11, color: "#60a5fa", fontWeight: 600 }}>
+                          {art.feedbackCount} correções
+                        </span>
+                      </div>
+                    </div>
+                  </Link>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Aguardando correções */}
+          {pending.length > 0 && (
+            <div style={{ marginBottom: 20 }}>
+              <p style={{ fontSize: 13, fontWeight: 700, color: "#475569", margin: "0 0 12px", textTransform: "uppercase", letterSpacing: "0.06em" }}>
+                Aguardando correções
+              </p>
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(220px, 1fr))", gap: 8 }}>
+                {pending.map((art) => (
+                  <Link key={art.id} href={`/artefatos/${art.id}`} style={{ textDecoration: "none" }}>
+                    <div style={{
+                      padding: "12px 14px", borderRadius: 8, opacity: 0.65,
+                      background: "#0d0d0d", border: "1px solid #1e1e2e", cursor: "pointer",
+                    }}>
+                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
+                        <span style={{ fontSize: 13, fontWeight: 600, color: "#475569" }}>
+                          {art.artefactName}
+                        </span>
+                        <span style={{ fontSize: 11, color: "#334155" }}>
+                          {art.feedbackCount}/{MINIMUM_FEEDBACKS}
+                        </span>
+                      </div>
+                      <div style={{ background: "#1e1e2e", borderRadius: 4, height: 3 }}>
+                        <div style={{
+                          height: 3, borderRadius: 4, background: "#334155",
+                          width: `${Math.min(100, (art.feedbackCount / MINIMUM_FEEDBACKS) * 100)}%`,
+                        }} />
+                      </div>
+                      <div style={{ fontSize: 11, color: "#334155", marginTop: 6 }}>
+                        Faltam {MINIMUM_FEEDBACKS - art.feedbackCount} feedback{MINIMUM_FEEDBACKS - art.feedbackCount !== 1 ? "s" : ""}
+                      </div>
+                    </div>
+                  </Link>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {(readyNoModel.length > 0 || pending.length > 0) && models.length > 0 && (
+            <div style={{ height: 1, background: "#1e1e2e", margin: "8px 0 28px" }} />
+          )}
+        </div>
+      )}
+
+      {!dbError && models.length === 0 && readyNoModel.length === 0 && (
         <div style={{
           padding: "48px 24px", textAlign: "center",
           background: "#141414", border: "1px solid #222", borderRadius: 10,
@@ -85,6 +212,12 @@ export default async function PadroesPage() {
             na base de correção.
           </p>
         </div>
+      )}
+
+      {models.length > 0 && (
+        <p style={{ fontSize: 13, fontWeight: 700, color: "#475569", margin: "0 0 14px", textTransform: "uppercase", letterSpacing: "0.06em" }}>
+          ✓ Modelos gerados
+        </p>
       )}
 
       <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
