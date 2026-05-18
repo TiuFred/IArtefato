@@ -93,41 +93,28 @@ export async function POST(request: Request) {
           .replace("{artefact_context}", artefactContext)
           .replace("{model_context}", modelContext)
           .replace("{feedback_samples}", feedbackSamples)
-      : `Crie ${quantity} perguntas discursivas acadêmicas com alto nível de complexidade cognitiva e estrutura interdisciplinar. Ignore completamente conteúdos específicos; o foco deve estar exclusivamente no padrão de construção da pergunta.
+      : `Crie ${quantity} pergunta(s) discursiva(s) clara(s) e acessível(is) sobre o artefato "${artefact.artefactName}".
 
-${modelContext ? `Contexto do padrão de correção do professor para o artefato "${artefact.artefactName}":\n${modelContext}\n` : ""}
+${modelContext ? `Contexto do padrão de correção do professor:\n${modelContext}\n` : ""}
 ${feedbackSamples ? `Exemplos de feedbacks reais do professor:\n${feedbackSamples}\n` : ""}
 
-As perguntas devem seguir estas características estruturais:
-- Linguagem formal, acadêmica e analítica.
-- Frases longas e bem encadeadas.
-- Contextualização inicial antes do comando principal.
-- Estrutura em múltiplas camadas cognitivas.
-- Exigir raciocínio, não memorização.
-- Misturar explicação conceitual, interpretação, análise e aplicação prática.
-- Utilizar verbos como: "explique", "descreva", "diferencie", "justifique", "identifique", "proponha", "relacione" e "exemplifique".
-- Exigir respostas organizadas e extensas.
-- Inserir múltiplos comandos dentro da mesma pergunta.
-- Criar dependência lógica entre as partes da questão.
-- Fazer a dificuldade aumentar progressivamente ao longo da frase.
-- Utilizar estruturas como: "Com base nesse cenário…", "Considerando…", "No contexto…", "Em seguida…", "Por fim…"
-- Priorizar perguntas abertas e argumentativas.
-- Exigir exemplos concretos ao final da resposta.
-- Estruturar questões com: definição → diferenciação → aplicação → justificativa → exemplificação.
-- Alternar entre perguntas mais densas e versões resumidas da mesma lógica.
-- Criar perguntas com subdivisões (ex: 4.1, 4.2).
-- Evitar perguntas objetivas, curtas ou puramente teóricas.
-- Simular estilo de avaliações por competências, PBL e vestibulares discursivos modernos.
-- Produzir perguntas que pareçam corrigidas por rubricas avaliativas.
+Diretrizes para as perguntas:
+- Linguagem clara e direta, adequada ao nível da atividade.
+- Cada pergunta deve ter um foco bem definido, sem sobrecarregar o aluno com múltiplos comandos.
+- Usar verbos como "explique", "descreva", "identifique", "justifique" ou "relate".
+- As perguntas devem estimular reflexão e compreensão, não apenas memorização.
+- Variar entre perguntas mais simples e outras um pouco mais elaboradas.
+- Evitar linguagem excessivamente técnica ou acadêmica desnecessária.
+- Preferir perguntas diretas e objetivas em sua formulação, mas abertas nas respostas esperadas.
 
-Gere exatamente ${quantity} questão(ões) seguindo EXATAMENTE esse padrão estrutural, no seguinte formato JSON:
+Gere exatamente ${quantity} questão(ões) no seguinte formato JSON:
 {
   "questions": [
     {
-      "question": "Enunciado completo, formal e acadêmico da questão (com subdivisões se aplicável)",
-      "expectedElements": ["elemento ou competência esperada na resposta 1", "elemento 2"],
+      "question": "Enunciado claro e direto da pergunta",
+      "expectedElements": ["elemento esperado na resposta 1", "elemento esperado 2"],
       "difficulty": "fácil" | "médio" | "difícil",
-      "relatedCriteria": ["critério de avaliação ou rubrica relacionada"]
+      "relatedCriteria": ["critério de avaliação relacionado"]
     }
   ]
 }

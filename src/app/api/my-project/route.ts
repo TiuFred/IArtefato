@@ -22,9 +22,17 @@ type FeedbackRow = {
   [key: string]: unknown;
 };
 
+type ModelRow = {
+  confidence: number;
+  rigorLevel: string;
+  generatedAt: Date;
+  groupFeedbackCount: number;
+};
+
 type ArtefactRow = {
   id: string;
   groupFeedbacks: FeedbackRow[];
+  correctionModels: ModelRow[];
   [key: string]: unknown;
 };
 
@@ -38,7 +46,16 @@ async function fetchMembership(where: Record<string, unknown>) {
             include: {
               groupFeedbacks: {
                 orderBy: { createdAt: "asc" },
-                // uploadedDocuments omitted — not rendered in base-correcao/simular UI
+              },
+              correctionModels: {
+                orderBy: { generatedAt: "desc" },
+                take: 1,
+                select: {
+                  confidence: true,
+                  rigorLevel: true,
+                  generatedAt: true,
+                  groupFeedbackCount: true,
+                },
               },
             },
             orderBy: { createdAt: "asc" },
@@ -78,13 +95,20 @@ export async function GET() {
       return NextResponse.json({ error: "Sem grupo atribuido." }, { status: 403 });
     }
 
-    const artefacts = (refreshedMembership.projectContext.artefactContexts as ArtefactRow[]).map((artefact) => ({
-      ...artefact,
-      groupFeedbacks: artefact.groupFeedbacks.map((feedback: FeedbackRow) => {
+    const artefacts = (refreshedMembership.projectContext.artefactContexts as ArtefactRow[]).map((artefact) => {
+      const sanitizedFeedbacks = artefact.groupFeedbacks.map((feedback: FeedbackRow) => {
         if (feedback.groupName === refreshedMembership.groupName) return feedback;
         return sanitizeOtherGroupFeedback(feedback);
-      }),
-    }));
+      });
+      const latestModel = artefact.correctionModels?.[0] ?? null;
+      return {
+        ...artefact,
+        groupFeedbacks: sanitizedFeedbacks,
+        latestModel: latestModel
+          ? { confidence: latestModel.confidence, rigorLevel: latestModel.rigorLevel }
+          : null,
+      };
+    });
 
     return NextResponse.json({
       data: {

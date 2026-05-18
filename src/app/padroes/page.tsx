@@ -268,7 +268,7 @@ export default async function PadroesPage() {
                     Gerado em {new Date(model.generatedAt).toLocaleDateString("pt-BR")}
                   </p>
                 </div>
-                <div style={{ display: "flex", gap: 10, alignItems: "center", flexShrink: 0 }}>
+                <div style={{ display: "flex", gap: 10, alignItems: "center", flexShrink: 0, flexWrap: "wrap" }}>
                   <span style={{
                     padding: "4px 10px", borderRadius: 20,
                     background: color + "20", color, fontSize: 12, fontWeight: 700,
@@ -282,6 +282,16 @@ export default async function PadroesPage() {
                   }}>
                     {model.confidence}% confiança
                   </span>
+                  <Link
+                    href={`/criacao-perguntas?artefactContextId=${model.artefactContext?.id}`}
+                    style={{
+                      padding: "6px 14px", borderRadius: 20,
+                      background: "#4f8ef7", color: "#fff", fontSize: 12, fontWeight: 700,
+                      textDecoration: "none", whiteSpace: "nowrap",
+                    }}
+                  >
+                    Gerar Perguntas
+                  </Link>
                 </div>
               </div>
 

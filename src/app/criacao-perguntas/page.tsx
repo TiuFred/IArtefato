@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
+import { useSearchParams } from "next/navigation";
 import { toast } from "sonner";
 import type { GeneratedQuestion, QuestionGenerationResult } from "@/app/api/question-generation/route";
 
@@ -50,6 +51,10 @@ const difficultyColor: Record<string, string> = {
 // ─── Main Component ──────────────────────────────────────────────────────────
 
 export default function CriacaoDePerguntas() {
+  const searchParams = useSearchParams();
+  const highlightId = searchParams.get("artefactContextId");
+  const artefactRefs = useRef<Record<string, HTMLDivElement | null>>({});
+
   const [projectData, setProjectData] = useState<ProjectData | null>(null);
   const [loading, setLoading] = useState(true);
   const [quantities, setQuantities] = useState<Record<string, number>>({});
@@ -78,6 +83,15 @@ export default function CriacaoDePerguntas() {
   }, []);
 
   useEffect(() => { loadProject(); }, [loadProject]);
+
+  // Auto-scroll to highlighted artefact when arriving from /padroes
+  useEffect(() => {
+    if (!loading && highlightId && artefactRefs.current[highlightId]) {
+      setTimeout(() => {
+        artefactRefs.current[highlightId]?.scrollIntoView({ behavior: "smooth", block: "start" });
+      }, 200);
+    }
+  }, [loading, highlightId]);
 
   async function handleGenerate(artefactId: string) {
     const quantity = quantities[artefactId] ?? 5;
@@ -293,8 +307,18 @@ export default function CriacaoDePerguntas() {
                 const result = results[art.id];
                 const isGenerating = generating[art.id] ?? false;
 
+                const isHighlighted = highlightId === art.id;
+
                 return (
-                  <div key={art.id} style={panel}>
+                  <div
+                    key={art.id}
+                    ref={(el) => { artefactRefs.current[art.id] = el; }}
+                    style={{
+                      ...panel,
+                      border: isHighlighted ? "1px solid #4f8ef7" : panel.border,
+                      boxShadow: isHighlighted ? "0 0 0 2px #4f8ef720" : undefined,
+                    }}
+                  >
                     {/* Artefact header row */}
                     <div style={{ display: "flex", alignItems: "flex-start", gap: 16, marginBottom: result ? 16 : 0 }}>
                       <div style={{ flex: 1 }}>
