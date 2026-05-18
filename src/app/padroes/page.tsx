@@ -113,14 +113,18 @@ export default async function PadroesPage() {
 
     totalFeedbacks = feedbackCount;
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    artefactStatuses = artefacts.map((a: any) => ({
-      id: a.id,
-      artefactName: a.artefactName,
-      feedbackCount: a._count.groupFeedbacks,
-      hasModel: a.correctionModels.length > 0,
-      projectName: a.projectContext.name,
-      feedbacks: feedbacksByArtefact[a.id] ?? [],
-    }));
+    artefactStatuses = artefacts.map((a: any) => {
+      const feedbacks: FeedbackRow[] = feedbacksByArtefact[a.id] ?? [];
+      return {
+        id: a.id,
+        artefactName: a.artefactName,
+        // Use the flat-query count as source of truth to avoid Prisma _count cache issues
+        feedbackCount: feedbacks.length,
+        hasModel: a.correctionModels.length > 0,
+        projectName: a.projectContext.name,
+        feedbacks,
+      };
+    });
   } catch (err) {
     console.error("[padroes]", err);
     dbError = true;

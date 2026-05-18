@@ -72,12 +72,29 @@ async function ensureSingleArtefactContext(
   description: string
 ) {
   const prisma = getPrisma();
-  const existing = await prisma.artefactContext.findFirst({
+
+  // 1. Already properly linked — nothing to do.
+  const byActivity = await prisma.artefactContext.findFirst({
     where: { projectContextId, activityId },
     select: { id: true },
   });
-  if (existing) return;
+  if (byActivity) return;
 
+  // 2. Exists with the same name but no activityId (created manually or via seed before
+  //    activities were added). Link it to this activity instead of creating a duplicate.
+  const byName = await prisma.artefactContext.findFirst({
+    where: { projectContextId, artefactName, activityId: null },
+    select: { id: true },
+  });
+  if (byName) {
+    await prisma.artefactContext.update({
+      where: { id: byName.id },
+      data: { activityId, artefactName, description },
+    });
+    return;
+  }
+
+  // 3. Truly new — create it.
   await prisma.artefactContext.create({
     data: {
       projectContextId,
