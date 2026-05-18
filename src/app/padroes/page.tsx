@@ -53,7 +53,7 @@ export default async function PadroesPage() {
   let dbError = false;
 
   try {
-    const [rawModels, feedbackCount, artefacts] = await Promise.all([
+    const [rawModels, feedbackCount, artefacts, allFeedbacks] = await Promise.all([
       anyDb().artefactCorrectionModel.findMany({
         orderBy: { generatedAt: "desc" },
         include: {
@@ -62,17 +62,6 @@ export default async function PadroesPage() {
               id: true,
               description: true,
               activity: { select: { subject: true } },
-              groupFeedbacks: {
-                orderBy: { createdAt: "asc" },
-                select: {
-                  id: true,
-                  groupName: true,
-                  score: true,
-                  maxScore: true,
-                  feedback: true,
-                  createdAt: true,
-                },
-              },
             },
           },
         },
@@ -83,23 +72,45 @@ export default async function PadroesPage() {
         include: {
           projectContext: { select: { name: true } },
           _count: { select: { groupFeedbacks: true } },
-          correctionModels: { select: { id: true }, take: 1, orderBy: { generatedAt: "desc" } },
-          groupFeedbacks: {
-            orderBy: { createdAt: "asc" },
-            select: {
-              id: true,
-              groupName: true,
-              score: true,
-              maxScore: true,
-              feedback: true,
-              createdAt: true,
-            },
+          correctionModels: {
+            select: { id: true },
+            take: 1,
+            orderBy: { generatedAt: "desc" },
           },
+        },
+      }),
+      anyDb().groupFeedback.findMany({
+        orderBy: { createdAt: "asc" },
+        select: {
+          id: true,
+          groupName: true,
+          score: true,
+          maxScore: true,
+          feedback: true,
+          createdAt: true,
+          artefactContextId: true,
         },
       }),
     ]);
 
-    models = rawModels;
+    // Index feedbacks by artefactContextId for O(1) lookup
+    const feedbacksByArtefact: Record<string, FeedbackRow[]> = {};
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    for (const fb of allFeedbacks as any[]) {
+      const key: string = fb.artefactContextId;
+      if (!feedbacksByArtefact[key]) feedbacksByArtefact[key] = [];
+      feedbacksByArtefact[key].push(fb);
+    }
+
+    // Attach feedbacks to models
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    models = rawModels.map((m: any) => ({
+      ...m,
+      artefactContext: m.artefactContext
+        ? { ...m.artefactContext, groupFeedbacks: feedbacksByArtefact[m.artefactContext.id] ?? [] }
+        : null,
+    }));
+
     totalFeedbacks = feedbackCount;
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     artefactStatuses = artefacts.map((a: any) => ({
@@ -108,9 +119,10 @@ export default async function PadroesPage() {
       feedbackCount: a._count.groupFeedbacks,
       hasModel: a.correctionModels.length > 0,
       projectName: a.projectContext.name,
-      feedbacks: a.groupFeedbacks,
+      feedbacks: feedbacksByArtefact[a.id] ?? [],
     }));
-  } catch {
+  } catch (err) {
+    console.error("[padroes]", err);
     dbError = true;
   }
 
