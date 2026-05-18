@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback, useRef, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import { toast } from "sonner";
 import type { GeneratedQuestion, QuestionGenerationResult } from "@/app/api/question-generation/route";
@@ -50,7 +50,15 @@ const difficultyColor: Record<string, string> = {
 
 // ─── Main Component ──────────────────────────────────────────────────────────
 
-export default function CriacaoDePerguntas() {
+export default function CriacaoDePerguntasPage() {
+  return (
+    <Suspense>
+      <CriacaoDePerguntas />
+    </Suspense>
+  );
+}
+
+function CriacaoDePerguntas() {
   const searchParams = useSearchParams();
   const highlightId = searchParams.get("artefactContextId");
   const artefactRefs = useRef<Record<string, HTMLDivElement | null>>({});
