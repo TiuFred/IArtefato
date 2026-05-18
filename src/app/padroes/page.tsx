@@ -8,6 +8,15 @@ const anyDb = () => getPrisma() as unknown as Record<string, any>;
 
 const MINIMUM_FEEDBACKS = 5;
 
+type FeedbackRow = {
+  id: string;
+  groupName: string;
+  score: number;
+  maxScore: number;
+  feedback: string;
+  createdAt: Date;
+};
+
 type ModelRow = {
   id: string;
   artefactName: string;
@@ -24,6 +33,7 @@ type ModelRow = {
     id: string;
     description: string;
     activity: { subject: string } | null;
+    groupFeedbacks: FeedbackRow[];
   };
 };
 
@@ -33,6 +43,7 @@ type ArtefactStatusRow = {
   feedbackCount: number;
   hasModel: boolean;
   projectName: string;
+  feedbacks: FeedbackRow[];
 };
 
 export default async function PadroesPage() {
@@ -51,6 +62,17 @@ export default async function PadroesPage() {
               id: true,
               description: true,
               activity: { select: { subject: true } },
+              groupFeedbacks: {
+                orderBy: { createdAt: "asc" },
+                select: {
+                  id: true,
+                  groupName: true,
+                  score: true,
+                  maxScore: true,
+                  feedback: true,
+                  createdAt: true,
+                },
+              },
             },
           },
         },
@@ -62,18 +84,31 @@ export default async function PadroesPage() {
           projectContext: { select: { name: true } },
           _count: { select: { groupFeedbacks: true } },
           correctionModels: { select: { id: true }, take: 1, orderBy: { generatedAt: "desc" } },
+          groupFeedbacks: {
+            orderBy: { createdAt: "asc" },
+            select: {
+              id: true,
+              groupName: true,
+              score: true,
+              maxScore: true,
+              feedback: true,
+              createdAt: true,
+            },
+          },
         },
       }),
     ]);
 
     models = rawModels;
     totalFeedbacks = feedbackCount;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     artefactStatuses = artefacts.map((a: any) => ({
       id: a.id,
       artefactName: a.artefactName,
       feedbackCount: a._count.groupFeedbacks,
       hasModel: a.correctionModels.length > 0,
       projectName: a.projectContext.name,
+      feedbacks: a.groupFeedbacks,
     }));
   } catch {
     dbError = true;
@@ -139,30 +174,51 @@ export default async function PadroesPage() {
                   {readyNoModel.length} artefato{readyNoModel.length !== 1 ? "s" : ""}
                 </span>
               </div>
-              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(220px, 1fr))", gap: 10 }}>
+              <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
                 {readyNoModel.map((art) => (
-                  <Link key={art.id} href={`/artefatos/${art.id}`} style={{ textDecoration: "none" }}>
-                    <div style={{
-                      padding: "14px 16px", borderRadius: 10,
-                      background: "#0d1225", border: "1px solid #1e40af55",
-                      cursor: "pointer", transition: "border-color 0.15s",
-                    }}>
-                      <div style={{ fontWeight: 700, fontSize: 14, color: "#93c5fd", marginBottom: 4 }}>
-                        {art.artefactName}
-                      </div>
-                      <div style={{ fontSize: 12, color: "#334155", marginBottom: 10 }}>
-                        {art.projectName}
-                      </div>
-                      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-                        <div style={{ flex: 1, background: "#1e293b", borderRadius: 4, height: 4, marginRight: 8 }}>
-                          <div style={{ height: 4, borderRadius: 4, background: "#3b82f6", width: "100%" }} />
+                  <div key={art.id} style={{
+                    borderRadius: 10, background: "#0d1225", border: "1px solid #1e40af55",
+                  }}>
+                    {/* Card header */}
+                    <div style={{ padding: "14px 16px", display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 10 }}>
+                      <div>
+                        <div style={{ fontWeight: 700, fontSize: 14, color: "#93c5fd", marginBottom: 2 }}>
+                          {art.artefactName}
                         </div>
+                        <div style={{ fontSize: 12, color: "#334155" }}>{art.projectName}</div>
+                      </div>
+                      <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
                         <span style={{ fontSize: 11, color: "#60a5fa", fontWeight: 600 }}>
                           {art.feedbackCount} correções
                         </span>
+                        <Link href={`/artefatos/${art.id}`} style={{
+                          padding: "5px 12px", borderRadius: 16,
+                          background: "#1e3a8a", color: "#93c5fd", fontSize: 12,
+                          fontWeight: 600, textDecoration: "none",
+                        }}>
+                          Gerar modelo →
+                        </Link>
                       </div>
                     </div>
-                  </Link>
+
+                    {/* Feedbacks dos grupos */}
+                    {art.feedbacks.length > 0 && (
+                      <details style={{ borderTop: "1px solid #1e3a5f1a" }}>
+                        <summary style={{
+                          padding: "8px 16px", fontSize: 11, color: "#3b82f6",
+                          fontWeight: 600, cursor: "pointer", userSelect: "none",
+                          listStyle: "none", display: "flex", alignItems: "center", gap: 6,
+                        }}>
+                          ▸ Ver {art.feedbacks.length} feedback{art.feedbacks.length !== 1 ? "s" : ""} dos grupos
+                        </summary>
+                        <div style={{ padding: "0 16px 14px", display: "flex", flexDirection: "column", gap: 8 }}>
+                          {art.feedbacks.map((fb) => (
+                            <FeedbackCard key={fb.id} fb={fb} />
+                          ))}
+                        </div>
+                      </details>
+                    )}
+                  </div>
                 ))}
               </div>
             </div>
@@ -174,32 +230,50 @@ export default async function PadroesPage() {
               <p style={{ fontSize: 13, fontWeight: 700, color: "#475569", margin: "0 0 12px", textTransform: "uppercase", letterSpacing: "0.06em" }}>
                 Aguardando correções
               </p>
-              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(220px, 1fr))", gap: 8 }}>
+              <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
                 {pending.map((art) => (
-                  <Link key={art.id} href={`/artefatos/${art.id}`} style={{ textDecoration: "none" }}>
-                    <div style={{
-                      padding: "12px 14px", borderRadius: 8, opacity: 0.65,
-                      background: "#0d0d0d", border: "1px solid #1e1e2e", cursor: "pointer",
-                    }}>
-                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
+                  <div key={art.id} style={{
+                    borderRadius: 8, background: "#0d0d0d", border: "1px solid #1e1e2e",
+                  }}>
+                    <div style={{ padding: "12px 14px", display: "flex", justifyContent: "space-between", alignItems: "center", opacity: 0.75 }}>
+                      <div>
                         <span style={{ fontSize: 13, fontWeight: 600, color: "#475569" }}>
                           {art.artefactName}
                         </span>
-                        <span style={{ fontSize: 11, color: "#334155" }}>
-                          {art.feedbackCount}/{MINIMUM_FEEDBACKS}
+                        <span style={{ fontSize: 11, color: "#334155", marginLeft: 10 }}>
+                          {art.projectName}
                         </span>
                       </div>
-                      <div style={{ background: "#1e1e2e", borderRadius: 4, height: 3 }}>
-                        <div style={{
-                          height: 3, borderRadius: 4, background: "#334155",
-                          width: `${Math.min(100, (art.feedbackCount / MINIMUM_FEEDBACKS) * 100)}%`,
-                        }} />
-                      </div>
-                      <div style={{ fontSize: 11, color: "#334155", marginTop: 6 }}>
-                        Faltam {MINIMUM_FEEDBACKS - art.feedbackCount} feedback{MINIMUM_FEEDBACKS - art.feedbackCount !== 1 ? "s" : ""}
+                      <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                        <div style={{ background: "#1e1e2e", borderRadius: 4, height: 3, width: 80 }}>
+                          <div style={{
+                            height: 3, borderRadius: 4, background: "#334155",
+                            width: `${Math.min(100, (art.feedbackCount / MINIMUM_FEEDBACKS) * 100)}%`,
+                          }} />
+                        </div>
+                        <span style={{ fontSize: 11, color: "#334155", whiteSpace: "nowrap" }}>
+                          {art.feedbackCount}/{MINIMUM_FEEDBACKS} feedbacks
+                        </span>
                       </div>
                     </div>
-                  </Link>
+
+                    {art.feedbacks.length > 0 && (
+                      <details style={{ borderTop: "1px solid #1e1e2e" }}>
+                        <summary style={{
+                          padding: "6px 14px", fontSize: 11, color: "#475569",
+                          fontWeight: 600, cursor: "pointer", userSelect: "none",
+                          listStyle: "none", display: "flex", alignItems: "center", gap: 6,
+                        }}>
+                          ▸ Ver {art.feedbacks.length} feedback{art.feedbacks.length !== 1 ? "s" : ""} enviado{art.feedbacks.length !== 1 ? "s" : ""}
+                        </summary>
+                        <div style={{ padding: "0 14px 12px", display: "flex", flexDirection: "column", gap: 8 }}>
+                          {art.feedbacks.map((fb) => (
+                            <FeedbackCard key={fb.id} fb={fb} dim />
+                          ))}
+                        </div>
+                      </details>
+                    )}
+                  </div>
                 ))}
               </div>
             </div>
@@ -241,6 +315,7 @@ export default async function PadroesPage() {
           const style = model.correctionStyle as { tone?: string; focusAreas?: string[] } | null;
           const color = rigorColor[model.rigorLevel] ?? "#888";
           const subject = model.artefactContext?.activity?.subject ?? null;
+          const feedbacks: FeedbackRow[] = model.artefactContext?.groupFeedbacks ?? [];
 
           return (
             <div key={model.id} style={{
@@ -295,7 +370,26 @@ export default async function PadroesPage() {
                 </div>
               </div>
 
-              {/* Inferred Prompt — the professor's correction prompt database entry */}
+              {/* Feedbacks dos grupos — dados que geraram este modelo */}
+              {feedbacks.length > 0 && (
+                <details style={{ marginBottom: 16 }}>
+                  <summary style={{
+                    fontSize: 11, color: "#475569", fontWeight: 700, textTransform: "uppercase",
+                    letterSpacing: "0.08em", cursor: "pointer", userSelect: "none",
+                    padding: "6px 0", listStyle: "none", display: "flex", alignItems: "center", gap: 6,
+                  }}>
+                    <span style={{ color: "#34d399" }}>▸</span>{" "}
+                    Feedbacks dos grupos ({feedbacks.length})
+                  </summary>
+                  <div style={{ marginTop: 10, display: "flex", flexDirection: "column", gap: 8 }}>
+                    {feedbacks.map((fb) => (
+                      <FeedbackCard key={fb.id} fb={fb} />
+                    ))}
+                  </div>
+                </details>
+              )}
+
+              {/* Inferred Prompt */}
               {model.inferredPrompt && (
                 <details style={{ marginBottom: 16 }}>
                   <summary style={{
@@ -389,6 +483,40 @@ export default async function PadroesPage() {
           );
         })}
       </div>
+    </div>
+  );
+}
+
+function FeedbackCard({ fb, dim }: { fb: FeedbackRow; dim?: boolean }) {
+  const pct = fb.maxScore > 0 ? Math.round((fb.score / fb.maxScore) * 100) : 0;
+  const scoreColor = pct >= 75 ? "#4ade80" : pct >= 50 ? "#fbbf24" : "#f87171";
+  const preview = fb.feedback.length > 220 ? fb.feedback.slice(0, 220) + "…" : fb.feedback;
+
+  return (
+    <div style={{
+      padding: "10px 12px", borderRadius: 8,
+      background: dim ? "#0a0a0a" : "#0d0f18",
+      border: "1px solid #1e293b",
+      opacity: dim ? 0.8 : 1,
+    }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6, flexWrap: "wrap", gap: 6 }}>
+        <span style={{ fontSize: 12, fontWeight: 700, color: "#64748b" }}>
+          {fb.groupName}
+        </span>
+        <span style={{
+          fontSize: 11, fontWeight: 700, color: scoreColor,
+          padding: "2px 8px", borderRadius: 12,
+          background: scoreColor + "18", border: `1px solid ${scoreColor}33`,
+        }}>
+          {fb.score}/{fb.maxScore} · {pct}%
+        </span>
+      </div>
+      <p style={{ fontSize: 12, color: "#94a3b8", margin: 0, lineHeight: 1.6 }}>
+        {preview}
+      </p>
+      <p style={{ fontSize: 10, color: "#334155", margin: "6px 0 0" }}>
+        {new Date(fb.createdAt).toLocaleDateString("pt-BR", { day: "2-digit", month: "short", year: "numeric" })}
+      </p>
     </div>
   );
 }
